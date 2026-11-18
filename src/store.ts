@@ -10,7 +10,7 @@ type Saved = {
   callsign: string
   secrets: SecretId[]
   cheats: string[]
-  bestMiles: number
+  bestKm: number
   bestValves: number
   finished: boolean
 }
@@ -33,16 +33,16 @@ type State = Saved & {
   boot: (sound: boolean) => void
   find: (id: SecretId) => void
   cheat: (code: string) => boolean
-  recordRun: (miles: number, valves: number, finished: boolean) => void
+  recordRun: (km: number, valves: number, finished: boolean) => void
   toast: (t: Omit<Toast, 'id'>) => void
   dropToast: (id: number) => void
   reset: () => void
 }
 
-const KEY = 'saltline.v1'
+const KEY = 'saltline.v2'
 const DEFAULTS: Saved = {
   lead: 'ines', car: 'sandpiper', paint: 'signal', stripe: 'rally', callsign: 'NIGHT DRIVER',
-  secrets: [], cheats: [], bestMiles: 0, bestValves: 0, finished: false,
+  secrets: [], cheats: [], bestKm: 0, bestValves: 0, finished: false,
 }
 
 function load(): Saved {
@@ -105,9 +105,9 @@ export const useGame = create<State>((set, get) => ({
     if (code === 'CQCQ') find('cq')
     return true
   },
-  recordRun: (miles, valves, finished) =>
+  recordRun: (km, valves, finished) =>
     set((s) => ({
-      bestMiles: Math.max(s.bestMiles, Math.round(miles)),
+      bestKm: Math.max(s.bestKm, Math.round(km)),
       bestValves: Math.max(s.bestValves, valves),
       finished: s.finished || finished,
     })),
@@ -119,7 +119,7 @@ export const useGame = create<State>((set, get) => ({
 useGame.subscribe((s) => {
   const saved: Saved = {
     lead: s.lead, car: s.car, paint: s.paint, stripe: s.stripe, callsign: s.callsign,
-    secrets: s.secrets, cheats: s.cheats, bestMiles: s.bestMiles, bestValves: s.bestValves, finished: s.finished,
+    secrets: s.secrets, cheats: s.cheats, bestKm: s.bestKm, bestValves: s.bestValves, finished: s.finished,
   }
   try {
     localStorage.setItem(KEY, JSON.stringify(saved))

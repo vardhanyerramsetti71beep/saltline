@@ -41,10 +41,10 @@ export function Reveal({ as: Tag = 'div', className = '', delay = 0, children }:
   return <Tag ref={ref} className={`reveal ${shown ? 'in' : ''} ${className}`} style={{ '--d': `${delay}ms` } as CSSProperties}>{children}</Tag>
 }
 
-export function ChapterHead({ mile, title, children }: { mile: number; title: string; children?: ReactNode }) {
+export function ChapterHead({ km, title, children }: { km: number; title: string; children?: ReactNode }) {
   return (
     <Reveal as="header" className="chead">
-      <span className="chead__mile"><i>Mile</i>{String(mile).padStart(3, '0')}</span>
+      <span className="chead__mile"><i>Km</i>{String(km).padStart(3, '0')}</span>
       <h2>{title}</h2>
       {children && <p>{children}</p>}
     </Reveal>

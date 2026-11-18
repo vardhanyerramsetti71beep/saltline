@@ -23,7 +23,7 @@ export function Boot() {
         {[[16, 86], [272, 80], [520, 34], [784, 58]].map(([x, y]) => <circle key={x} cx={x} cy={y} r="8" />)}
       </svg>
       <h1 className="boot__title">SALTLINE</h1>
-      <p className="boot__line">361 miles. One tank. The last ferry leaves at dawn.</p>
+      <p className="boot__line">580 km. Three lives. The last ferry leaves at dawn.</p>
       <div className="boot__actions">
         <button className="btn btn--solid" disabled={!ready} onClick={() => boot(true)}>{ready ? 'Start engine' : 'Warming up'}</button>
         <button className="btn" disabled={!ready} onClick={() => boot(false)}>Silent run</button>

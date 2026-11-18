@@ -49,7 +49,7 @@ export function Poster({ region, label = true }: { region: string; label?: boole
   const uid = useId().replace(/[^a-z0-9]/gi, '')
   const r = rng(region.length * 97 + 11)
   let scene: ReactNode = null
-  let caption = { name: 'Port Sable', mile: 'MILE 000', ink: PAPER }
+  let caption = { name: 'Port Sable', marker: 'KM 000', ink: PAPER }
 
   if (region === 'sable') {
     const rain = Array.from({ length: 90 }, () => [r() * 860 - 30, r() * 720, 26 + r() * 40])
@@ -77,7 +77,7 @@ export function Poster({ region, label = true }: { region: string; label?: boole
       </>
     )
   } else if (region === 'flats') {
-    caption = { name: 'The Glass Flats', mile: 'MILE 112', ink: INK }
+    caption = { name: 'The Glass Flats', marker: 'KM 180', ink: INK }
     scene = (
       <>
         <rect width="800" height="1000" fill="#f0c95f" />
@@ -100,7 +100,7 @@ export function Poster({ region, label = true }: { region: string; label?: boole
       </>
     )
   } else if (region === 'pines') {
-    caption = { name: 'Ember Pines', mile: 'MILE 240', ink: PAPER }
+    caption = { name: 'Ember Pines', marker: 'KM 385', ink: PAPER }
     const embers = Array.from({ length: 46 }, () => [r() * 800, r() * 760, 2 + r() * 5])
     scene = (
       <>
@@ -117,7 +117,7 @@ export function Poster({ region, label = true }: { region: string; label?: boole
       </>
     )
   } else {
-    caption = { name: 'Cape Lantern', mile: 'MILE 291', ink: PAPER }
+    caption = { name: 'Cape Lantern', marker: 'KM 470', ink: PAPER }
     const stars = Array.from({ length: 80 }, () => [r() * 800, r() * 500, 0.8 + r() * 2])
     scene = (
       <>
@@ -150,7 +150,7 @@ export function Poster({ region, label = true }: { region: string; label?: boole
       {scene}
       {label && (
         <g fill={caption.ink} style={{ fontFamily: 'var(--display)' }}>
-          <text x="44" y="82" fontSize="30" style={{ fontFamily: 'var(--mono)' }}>{caption.mile}</text>
+          <text x="44" y="82" fontSize="30" style={{ fontFamily: 'var(--mono)' }}>{caption.marker}</text>
           <text x="756" y="82" fontSize="30" textAnchor="end" style={{ fontFamily: 'var(--mono)' }}>ROUTE 9</text>
           <text x="40" y="962" fontSize={caption.name.length > 12 ? 104 : 124} fontWeight="900" fill={PAPER} stroke={INK} strokeWidth="10" paintOrder="stroke">{caption.name.toUpperCase()}</text>
         </g>

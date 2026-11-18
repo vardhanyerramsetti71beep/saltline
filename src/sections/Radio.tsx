@@ -69,7 +69,7 @@ export function Radio() {
 
   return (
     <section id="radio" className="chapter radio">
-      <ChapterHead mile={301} title="Keep it on the dial">
+      <ChapterHead km={485} title="Keep it on the dial">
         Three stations still on the air, all made in your browser as you listen. It keeps playing while you drive.
       </ChapterHead>
       <Reveal className={`set ${on ? 'set--on' : ''}`}>

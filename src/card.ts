@@ -1,7 +1,7 @@
 import { CAR_SIDE, INK, MUSTARD, PAPER, RED, TEAL, rng } from './art'
 import { CARS, LEADS, PAINTS, rankFor, type CarId, type LeadId } from './content'
 
-export type CardData = { callsign: string; lead: LeadId; car: CarId; paint: string; miles: number; valves: number; secrets: number; finished: boolean }
+export type CardData = { callsign: string; lead: LeadId; car: CarId; paint: string; km: number; valves: number; secrets: number; finished: boolean }
 
 const DISPLAY = '"Big Shoulders Display", Impact, sans-serif'
 const MONO = '"Overpass Mono", monospace'
@@ -85,7 +85,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   g.textAlign = 'right'
   g.fillText('ROUTE 9 DRIVER’S CARD', W - 50, 76)
   g.fillStyle = accent
-  g.fillText(`NO. ${String(d.valves * 7 + d.miles + 1000).padStart(5, '0')}`, W - 50, 116)
+  g.fillText(`NO. ${String(d.valves * 7 + d.km + 1000).padStart(5, '0')}`, W - 50, 116)
   g.textAlign = 'left'
 
   // Callsign.
@@ -103,7 +103,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
 
   // Stats.
   const rows: [string, string][] = [
-    ['RANK', rankFor(d.miles, d.secrets, d.finished).toUpperCase()],
+    ['RANK', rankFor(d.km, d.secrets, d.finished).toUpperCase()],
     ['DRIVER', LEADS[d.lead].name.toUpperCase()],
     ['CAR', CARS[d.car].name.toUpperCase()],
     ['PAINT', paint.name.toUpperCase()],
@@ -120,7 +120,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
     g.textAlign = 'left'
   })
 
-  const tiles: [string, string][] = [['BEST MILE', String(d.miles)], ['VALVES', String(d.valves)], ['SECRETS', `${d.secrets}/6`]]
+  const tiles: [string, string][] = [['BEST KM', String(d.km)], ['VALVES', String(d.valves)], ['SECRETS', `${d.secrets}/6`]]
   tiles.forEach(([k, v], i) => {
     const x = 50 + i * 250
     g.fillStyle = INK
@@ -131,7 +131,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   })
 
   // Ticket barcode.
-  const b = rng(d.miles * 31 + d.valves + 5)
+  const b = rng(d.km * 31 + d.valves + 5)
   let x = 806
   g.fillStyle = INK
   while (x < W - 54) {

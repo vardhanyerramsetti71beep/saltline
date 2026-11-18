@@ -109,7 +109,35 @@ class AudioEngine {
   horn() {
     const t = this.now()
     if (t < 0) return
-    for (const f of [311, 392]) this.tone({ type: 'sawtooth', freq: f, t, dur: 0.34, vol: 0.12, attack: 0.012, cutoff: 1700 })
+    this.hornNote(t, 0.13)
+    this.hornNote(t + 0.2, 0.34)
+  }
+
+  /** A warm two-tone horn: a soft major third, rounded off with a low-pass filter. */
+  private hornNote(t: number, dur: number) {
+    const ctx = this.ctx
+    if (!ctx || !this.sfx) return
+    const env = ctx.createGain()
+    env.gain.setValueAtTime(0, t)
+    env.gain.linearRampToValueAtTime(0.17, t + 0.018)
+    env.gain.setValueAtTime(0.17, t + dur)
+    env.gain.linearRampToValueAtTime(0, t + dur + 0.09)
+    const warmth = ctx.createBiquadFilter()
+    warmth.type = 'lowpass'
+    warmth.frequency.value = 1250
+    warmth.Q.value = 0.8
+    warmth.connect(env).connect(this.sfx)
+    const voices: [number, OscillatorType, number][] = [[349.23, 'triangle', 0.7], [440, 'triangle', 0.6], [350.3, 'sawtooth', 0.16], [438.7, 'sawtooth', 0.14]]
+    for (const [freq, type, level] of voices) {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = type
+      osc.frequency.value = freq
+      gain.gain.value = level
+      osc.connect(gain).connect(warmth)
+      osc.start(t)
+      osc.stop(t + dur + 0.12)
+    }
   }
   pickup(chain = 0) {
     const t = this.now()

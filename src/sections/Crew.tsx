@@ -8,7 +8,7 @@ export function Crew() {
   const setLead = useGame((s) => s.setLead)
   return (
     <section id="crew" className="chapter crew">
-      <ChapterHead mile={64} title="Two drivers. One seat.">
+      <ChapterHead km={103} title="Two drivers. One seat.">
         Choose who takes the wheel. Your driver changes the colour of this page, the voice on the road and how the run plays.
       </ChapterHead>
       <div className="leads" role="radiogroup" aria-label="Choose your driver">

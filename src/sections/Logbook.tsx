@@ -13,7 +13,7 @@ export function Logbook() {
   const lead = useGame((s) => s.lead)
   const car = useGame((s) => s.car)
   const paint = useGame((s) => s.paint)
-  const miles = useGame((s) => s.bestMiles)
+  const km = useGame((s) => s.bestKm)
   const valves = useGame((s) => s.bestValves)
   const secrets = useGame((s) => s.secrets)
   const finished = useGame((s) => s.finished)
@@ -26,8 +26,8 @@ export function Logbook() {
 
   useEffect(() => {
     if (!seen || !canvas.current) return
-    void drawCard(canvas.current, { callsign, lead, car, paint, miles, valves, secrets: secrets.length, finished })
-  }, [seen, callsign, lead, car, paint, miles, valves, secrets, finished])
+    void drawCard(canvas.current, { callsign, lead, car, paint, km, valves, secrets: secrets.length, finished })
+  }, [seen, callsign, lead, car, paint, km, valves, secrets, finished])
 
   const save = async () => {
     if (!canvas.current) return
@@ -48,7 +48,7 @@ export function Logbook() {
     const blob = await cardBlob(canvas.current)
     if (!blob) return
     const file = new File([blob], 'saltline-drivers-card.png', { type: 'image/png' })
-    const data = { files: [file], title: 'SALTLINE', text: `I reached mile ${miles} on Route 9.` }
+    const data = { files: [file], title: 'SALTLINE', text: `I reached km ${km} on Route 9.` }
     if (!navigator.canShare?.(data)) return void save()
     try {
       await navigator.share(data)
@@ -59,7 +59,7 @@ export function Logbook() {
 
   return (
     <section id="logbook" className="chapter logbook">
-      <ChapterHead mile={340} title="Your driver’s card">
+      <ChapterHead km={547} title="Your driver’s card">
         It updates with your best run, your car and every secret you find.
       </ChapterHead>
       <div className="log" ref={ref}>

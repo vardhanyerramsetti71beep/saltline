@@ -6,7 +6,7 @@ export function Finale() {
     <section id="finale" className="finale">
       <div className="finale__art"><Poster region="cape" label={false} /></div>
       <Reveal className="finale__copy">
-        <span className="chead__mile"><i>Mile</i>361</span>
+        <span className="chead__mile"><i>Km</i>580</span>
         <h2>The ramp comes up at six.</h2>
         <p>Somebody has to be on it.</p>
         <button className="btn btn--solid btn--big" onClick={() => go('drive')}>Drive Route 9</button>

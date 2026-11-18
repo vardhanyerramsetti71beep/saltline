@@ -6,17 +6,17 @@ import { bendUniform, bendable, box, cone, cyl, flatVertex, merged, rock, wheel 
 
 export type Phase = 'attract' | 'count' | 'run' | 'paused' | 'over' | 'win'
 export type DriveHud = {
-  phase: Phase; mph: number; miles: number; fuel: number; hull: number; hullMax: number
-  valves: number; region: number; count: number; reason: string
+  phase: Phase; kmh: number; km: number; fuel: number; lives: number; livesMax: number
+  valves: number; region: number; count: number; reason: string; lostWhy: string
 }
 export type DriveEvents = {
   hud: (h: DriveHud) => void
   region: (index: number) => void
   ghost: () => void
-  end: (won: boolean, miles: number, valves: number) => void
+  end: (won: boolean, km: number, valves: number) => void
 }
 
-const FINISH = 361
+const FINISH = 580
 const ROAD = 7
 const SHOULDER = 10.4
 
@@ -29,8 +29,8 @@ const PALETTES: Palette[] = [
   { top: '#050a1c', mid: '#0d2040', hor: '#285571', sun: '#e6eff2', ground: '#12202f', road: '#0f1722', line: '#bcdcdd', hemi: '#6b86ad', low: '#0b1420', dir: '#a9c7e6', near: 34, far: 240, night: 1, sunDir: [0.36, 0.36, -1] },
 ]
 
-const regionAt = (miles: number) => {
-  for (let i = REGIONS.length - 1; i >= 0; i--) if (miles >= REGIONS[i].from) return i
+const regionAt = (km: number) => {
+  for (let i = REGIONS.length - 1; i >= 0; i--) if (km >= REGIONS[i].from) return i
   return 0
 }
 
@@ -73,13 +73,13 @@ export class DriveGame {
   phase: Phase = 'attract'
   input = { left: false, right: false, up: false, down: false, axis: 0 }
   private dist = 0
-  private miles = 0
-  private mph = 92
+  private km = 0
+  private kmh = 148
   private x = 0
   private vx = 0
   private fuel = 100
-  private hull = 3
-  private hullMax = 3
+  private lives = 3
+  private livesMax = 3
   private valves = 0
   private chain = 0
   private invuln = 0
@@ -93,6 +93,7 @@ export class DriveGame {
   private houseDone = false
   private attractTime = 0
   private reason = ''
+  private lostWhy = ''
   private hudTimer = 0
   private infinite = false
   private blueprint = false
@@ -442,15 +443,14 @@ export class DriveGame {
   }
 
   private resetRun() {
-    const spec = CARS[this.look.car]
     this.dist = 0
-    this.miles = 0
-    this.mph = 40
+    this.km = 0
+    this.kmh = 64
     this.x = 0
     this.vx = 0
     this.fuel = 100
-    this.hullMax = spec.hull + (this.lead === 'dov' ? 1 : 0)
-    this.hull = this.hullMax
+    this.livesMax = 3
+    this.lives = this.livesMax
     this.valves = 0
     this.chain = 0
     this.invuln = 0
@@ -462,6 +462,7 @@ export class DriveGame {
     this.ghostDone = false
     this.houseDone = false
     this.reason = ''
+    this.lostWhy = ''
     for (const e of this.entities) {
       e.on = false
       e.obj.visible = false
@@ -493,7 +494,7 @@ export class DriveGame {
     this.phase = 'attract'
     audio.engineStop()
     this.resetRun()
-    this.mph = 92
+    this.kmh = 148
     this.pushHud(true)
   }
 
@@ -508,9 +509,9 @@ export class DriveGame {
   }
 
   /** Development helper used to test the later regions without driving there. */
-  debugJump(miles: number) {
-    this.miles = miles
-    this.dist = miles * 20
+  debugJump(km: number) {
+    this.km = km
+    this.dist = km * 12.43
   }
 
   private frame = (now: number) => {
@@ -528,17 +529,17 @@ export class DriveGame {
       this.count -= dt
       if (this.count <= 0) {
         this.phase = 'run'
-        this.mph = 70
+        this.kmh = 113
       }
       this.pushHud(true)
     }
 
     if (this.phase === 'attract') this.attract(dt)
     else if (running) this.drive(dt)
-    else if (this.phase === 'win' || this.phase === 'over') this.mph = Math.max(0, this.mph - dt * (this.phase === 'win' ? 26 : 70))
+    else if (this.phase === 'win' || this.phase === 'over') this.kmh = Math.max(0, this.kmh - dt * (this.phase === 'win' ? 42 : 113))
 
     const paused = this.phase === 'paused'
-    const vel = paused ? 0 : this.mph * 0.42
+    const vel = paused ? 0 : this.kmh * 0.261
     if (!paused) this.dist += vel * dt
     this.bend()
     this.world(dt, vel)
@@ -547,12 +548,12 @@ export class DriveGame {
 
     this.hudTimer -= dt
     if (this.hudTimer <= 0) this.pushHud(false)
-    if (running) audio.engineSet(this.mph / CARS[this.look.car].top)
+    if (running) audio.engineSet(this.kmh / CARS[this.look.car].top)
   }
 
   private attract(dt: number) {
     this.attractTime += dt
-    this.mph += (92 - this.mph) * Math.min(1, dt)
+    this.kmh += (148 - this.kmh) * Math.min(1, dt)
     this.x = Math.sin(this.attractTime * 0.5) * 3.6
     this.vx = Math.cos(this.attractTime * 0.5) * 1.8
     this.region = Math.floor(this.attractTime / 9) % REGIONS.length
@@ -566,19 +567,19 @@ export class DriveGame {
     if (this.input.down) target = spec.top * 0.42
     if (offroad) target *= 0.72
     if (this.fuel <= 0) target = 0
-    this.mph += (target - this.mph) * Math.min(1, dt * (target > this.mph ? 0.85 : 2.1))
+    this.kmh += (target - this.kmh) * Math.min(1, dt * (target > this.kmh ? 0.85 : 2.1))
 
     const axis = this.input.axis || Number(this.input.right) - Number(this.input.left)
-    const reach = 25 * spec.grip * Math.min(1, 0.45 + this.mph / 110)
+    const reach = 25 * spec.grip * Math.min(1, 0.45 + this.kmh / 177)
     this.vx += (axis * reach - this.vx) * Math.min(1, dt * 7.5 * spec.grip)
-    const push = -bendUniform.value.x * this.mph * 3.4
+    const push = -bendUniform.value.x * this.kmh * 2.11
     this.x = THREE.MathUtils.clamp(this.x + (this.vx + push) * dt, -SHOULDER + 1.1, SHOULDER - 1.1)
 
-    this.miles += (this.mph / 120) * 2.4 * dt
+    this.km += this.kmh * 0.02 * dt
     if (!this.infinite) this.fuel = Math.max(0, this.fuel - (dt * (100 / 58) * (this.input.up ? 1.22 : 1)) / spec.tank)
     this.invuln = Math.max(0, this.invuln - dt)
 
-    const next = regionAt(this.miles)
+    const next = regionAt(this.km)
     if (next !== this.displayRegion) {
       this.displayRegion = next
       this.region = next
@@ -587,12 +588,16 @@ export class DriveGame {
     this.region = next
     this.director()
 
-    if (this.miles >= FINISH) return this.finish(true, 'Six o’clock. The signal is safe.')
-    if (this.fuel <= 0 && this.mph < 8) return this.finish(false, 'Out of fuel on Route 9.')
+    if (this.km >= FINISH) return this.finish(true, 'Six o’clock. The signal is safe.')
+    if (this.fuel <= 0 && this.kmh < 13) {
+      this.fuel = 60
+      this.kmh = 64
+      this.loseLife('The tank ran dry', 'The tank ran dry on your last life.')
+    }
   }
 
   private director() {
-    const level = this.miles / FINISH
+    const level = this.km / FINISH
     if (this.dist > this.nextSpawn) {
       this.nextSpawn = this.dist + THREE.MathUtils.lerp(70, 44, level) * (0.85 + Math.random() * 0.45)
       this.pattern(level)
@@ -601,11 +606,11 @@ export class DriveGame {
       this.nextFuel = this.dist + 560 + Math.random() * 180
       this.spawn('fuel', this.lane(), SPAWN_Z)
     }
-    if (!this.ghostDone && this.miles >= 166) {
+    if (!this.ghostDone && this.km >= 267) {
       this.ghostDone = true
       this.spawn('ghost', 8.4, SPAWN_Z)
     }
-    if (!this.houseDone && this.miles >= 346) {
+    if (!this.houseDone && this.km >= 557) {
       this.houseDone = true
       this.spawn('lighthouse', -46, SPAWN_Z)
     }
@@ -706,7 +711,7 @@ export class DriveGame {
     const wheels = this.car.userData.wheels as THREE.Object3D[]
     wheels.forEach((w) => (w.rotation.x -= vel * dt * 2.6))
     this.car.position.x = this.x
-    this.car.position.y = Math.sin(this.time * 19) * 0.012 * Math.min(1, this.mph / 80)
+    this.car.position.y = Math.sin(this.time * 19) * 0.012 * Math.min(1, this.kmh / 129)
     this.car.rotation.y = THREE.MathUtils.lerp(this.car.rotation.y, -this.vx * 0.016, Math.min(1, dt * 9))
     this.car.rotation.z = THREE.MathUtils.lerp(this.car.rotation.z, -this.vx * 0.006, Math.min(1, dt * 8))
     this.car.visible = this.invuln <= 0 || Math.floor(this.time * 18) % 2 === 0
@@ -743,17 +748,23 @@ export class DriveGame {
       return
     }
     if (this.invuln > 0) return
-    this.hull--
-    this.chain = 0
-    this.invuln = 1.7
-    this.shake = 0.8
-    this.mph *= 0.52
-    audio.crash()
+    this.kmh *= CARS[this.look.car].tough
     if (e.kind !== 'truck') {
       e.on = false
       e.obj.visible = false
     }
-    if (this.hull <= 0) this.finish(false, 'The car could not take another hit.')
+    this.loseLife('You crashed', 'That crash took your last life.')
+  }
+
+  private loseLife(why: string, lastWords: string) {
+    this.lives--
+    this.lostWhy = why
+    this.chain = 0
+    this.invuln = this.lead === 'dov' ? 3.6 : 1.8
+    this.shake = 0.8
+    audio.crash()
+    this.pushHud(true)
+    if (this.lives <= 0) this.finish(false, lastWords)
   }
 
   private finish(won: boolean, reason: string) {
@@ -762,7 +773,7 @@ export class DriveGame {
     this.reason = reason
     audio.engineStop()
     won ? audio.win() : audio.fail()
-    this.events.end(won, Math.min(this.miles, FINISH), this.valves)
+    this.events.end(won, Math.min(this.km, FINISH), this.valves)
     this.pushHud(true)
   }
 
@@ -816,7 +827,7 @@ export class DriveGame {
     }
     if (finale) this.camera.lookAt(this.x, 1, 0)
     else this.camera.lookAt(this.x * 0.78, 1.25, -13)
-    const speedFov = (wide ? 82 : 64) + Math.min(10, this.mph / 16)
+    const speedFov = (wide ? 82 : 64) + Math.min(10, this.kmh / 26)
     this.camera.fov += (speedFov - this.camera.fov) * Math.min(1, dt * 2)
     this.camera.updateProjectionMatrix()
   }
@@ -825,8 +836,8 @@ export class DriveGame {
     this.hudTimer = 0.1
     if (!force && this.phase !== 'run') return
     this.events.hud({
-      phase: this.phase, mph: Math.round(this.mph), miles: this.miles, fuel: this.fuel, hull: this.hull, hullMax: this.hullMax,
-      valves: this.valves, region: this.displayRegion, count: Math.ceil(this.count), reason: this.reason,
+      phase: this.phase, kmh: Math.round(this.kmh), km: this.km, fuel: this.fuel, lives: this.lives, livesMax: this.livesMax,
+      valves: this.valves, region: this.displayRegion, count: Math.ceil(this.count), reason: this.reason, lostWhy: this.lostWhy,
     })
   }
 

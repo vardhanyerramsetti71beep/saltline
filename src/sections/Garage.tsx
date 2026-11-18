@@ -49,7 +49,7 @@ export function Garage() {
 
   return (
     <section id="garage" className="chapter garage">
-      <ChapterHead mile={240} title="Dov’s garage">
+      <ChapterHead km={385} title="Dov’s garage">
         Three cars, seven paints. Whatever leaves this bay is what you drive.
       </ChapterHead>
       <div className="bay">
@@ -67,13 +67,13 @@ export function Garage() {
             ))}
           </div>
           <h3>{spec.name}</h3>
-          <p className="bay__kind">{spec.year} · {spec.kind}</p>
+          <p className="bay__kind">{spec.year} · {spec.kind} · {spec.top} kmph</p>
           <p>{spec.note}</p>
           <div className="stats">
-            <Bar label="Top speed" value={(spec.top / 160) * 100} />
+            <Bar label="Top speed" value={(spec.top / 256) * 100} />
             <Bar label="Grip" value={spec.grip * 100} />
             <Bar label="Tank" value={(spec.tank / 1.4) * 100} />
-            <Bar label="Hull" value={(spec.hull / 4) * 100} />
+            <Bar label="Toughness" value={(spec.tough / 0.8) * 100} />
           </div>
           <fieldset>
             <legend>Paint <b>{PAINTS.find((p) => p.id === paint)?.name}</b></legend>

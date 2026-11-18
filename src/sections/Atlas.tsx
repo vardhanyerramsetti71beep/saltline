@@ -18,8 +18,8 @@ export function Atlas() {
   }
   return (
     <section id="atlas" className="chapter atlas">
-      <ChapterHead mile={112} title="The Free State of Orrin">
-        Four regions, 361 miles and a single road between them. Pick a stop on the map.
+      <ChapterHead km={180} title="The Free State of Orrin">
+        Four regions, 580 km and a single road between them. Pick a stop on the map.
       </ChapterHead>
       <div className="atlas__grid">
         <Reveal className="map">
@@ -55,7 +55,7 @@ export function Atlas() {
               <path d="M0 -44 L9 0 L0 9 L-9 0Z" />
               <text y="-50" textAnchor="middle" className="map__n">N</text>
             </g>
-            <g transform="translate(150 562)" className="map__scale"><path d="M0 0h130M0 -6v12M65 -6v12M130 -6v12" stroke="var(--ink)" strokeWidth="2" /><text y="22">0</text><text x="124" y="22">50 mi</text></g>
+            <g transform="translate(150 562)" className="map__scale"><path d="M0 0h130M0 -6v12M65 -6v12M130 -6v12" stroke="var(--ink)" strokeWidth="2" /><text y="22">0</text><text x="124" y="22">80 km</text></g>
           </svg>
         </Reveal>
         <Reveal className="stop" delay={120}>

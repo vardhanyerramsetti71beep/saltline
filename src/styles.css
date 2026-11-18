@@ -257,23 +257,30 @@ kbd { padding: 3px 6px 0; border: 1.500px solid currentColor; font: 600 12px var
 .rh > * { pointer-events: auto; }
 .rh--top { top: 0; align-items: center; }
 .rh--bottom { bottom: 0; align-items: stretch; justify-content: flex-start; }
-.rh__place, .rh__speed, .rh__miles, .rh__valves, .rh__tank, .rh__pause { padding: 8px 12px 5px; background: rgba(10, 14, 27, .86); }
+.rh__place, .rh__speed, .rh__km, .rh__valves, .rh__tank, .rh__pause { padding: 8px 12px 5px; background: rgba(10, 14, 27, .86); }
 .rh__place b { display: block; font: 900 26px/1 var(--display); text-transform: uppercase; }
-.rh__place span, .rh__speed span, .rh__miles span, .rh__valves span, .rh__tank > span { font: 11px var(--mono); text-transform: uppercase; color: #cfc8b8; }
+.rh__place span, .rh__speed span, .rh__km span, .rh__valves span, .rh__tank > span { font: 11px var(--mono); text-transform: uppercase; color: #cfc8b8; }
 .rh__track { position: relative; flex: 1; height: 8px; background: rgba(239, 230, 211, .35); }
 .rh__track i { position: absolute; inset: 0 auto 0 0; background: var(--mustard); }
 .rh__track s { position: absolute; top: -4px; width: 3px; height: 16px; background: #efe6d3; }
 .rh__pause { min-width: 46px; height: 46px; color: #efe6d3; font: 900 20px var(--display); }
-.rh__speed b, .rh__miles b, .rh__valves b { display: block; font: 900 40px/.95 var(--display); }
+.rh__speed b, .rh__km b, .rh__valves b { display: block; font: 900 40px/.95 var(--display); }
 .rh__speed { min-width: 92px; }
 .rh__tank { margin-left: auto; width: min(240px, 34vw); display: grid; gap: 4px; align-content: center; }
 .rh__tank .low { color: #ffb29f; }
 .rh__fuel { height: 10px; background: rgba(239, 230, 211, .25); }
 .rh__fuel i { display: block; height: 100%; background: var(--mustard); transition: width .15s linear; }
 .rh__fuel i.low { background: #ff5a3d; }
-.rh__hull { display: flex; gap: 4px; }
-.rh__hull i { width: 22px; height: 7px; background: rgba(239, 230, 211, .22); }
-.rh__hull i.on { background: #efe6d3; }
+.rh__lives { display: grid; align-content: center; gap: 3px; padding: 8px 12px 5px; background: rgba(10, 14, 27, .86); }
+.rh__lives > div { display: flex; gap: 4px; }
+.rh__lives svg { width: 28px; height: 28px; fill: rgba(239, 230, 211, .16); stroke: rgba(239, 230, 211, .55); stroke-width: 1.500; transition: fill .2s; }
+.rh__lives svg.on { fill: #ff4b33; stroke: #ffd9d1; }
+.rh__lives span { font: 11px var(--mono); text-transform: uppercase; color: #cfc8b8; }
+.rh__lost { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; box-shadow: inset 0 0 0 10px #ff3b24, inset 0 0 150px rgba(255, 45, 25, .75); animation: lost 1.7s ease-out both; }
+.rh__lost div { display: grid; gap: 2px; padding: 14px 26px 10px; text-align: center; background: #13192b; border: 3px solid #ff4b33; }
+.rh__lost span { font: 600 13px var(--mono); text-transform: uppercase; color: #ffb29f; }
+.rh__lost b { font: 900 clamp(38px, 6vw, 68px)/1 var(--display); text-transform: uppercase; color: #efe6d3; }
+@keyframes lost { 0% { opacity: 0; } 8%, 70% { opacity: 1; } 100% { opacity: 0; } }
 .rh__line { position: absolute; left: 50%; bottom: 96px; translate: -50% 0; width: min(620px, calc(100% - 24px)); padding: 9px 14px 6px; background: rgba(10, 14, 27, .86); text-align: center; font-size: clamp(15px, 1.7vw, 19px); line-height: 1.3; animation: rise .3s ease; z-index: 3; }
 .rh__line b { color: var(--mustard); margin-right: 5px; text-transform: uppercase; font: 600 13px var(--mono); }
 .rh__count { position: absolute; inset: 0; display: grid; place-items: center; font: 900 min(46vw, 56vh)/1 var(--display); color: #efe6d3; text-shadow: 8px 8px 0 var(--accent-print); animation: count .9s ease-out both; z-index: 3; pointer-events: none; }
@@ -411,12 +418,16 @@ legend b { margin-left: 6px; color: var(--accent-text); }
   .rh--bottom { top: 74px; bottom: auto; gap: 5px; padding-block: 0; }
   .rh__place b { font-size: 21px; }
   .rh__place span { display: none; }
-  .rh__speed, .rh__miles, .rh__valves { min-width: 0; padding: 6px 8px 3px; }
-  .rh__speed b, .rh__miles b, .rh__valves b { font-size: 28px; }
-  .rh__miles span { font-size: 0; }
-  .rh__miles span::after { content: 'miles'; font-size: 10px; }
+  .rh__speed, .rh__km, .rh__valves { min-width: 0; padding: 6px 8px 3px; }
+  .rh__speed b, .rh__km b, .rh__valves b { font-size: 28px; }
+  .rh__km span { font-size: 0; }
+  .rh__km span::after { content: 'km'; font-size: 10px; }
   .rh__speed span, .rh__valves span { font-size: 10px; }
-  .rh__tank { flex: 1; width: auto; padding: 6px 8px; }
+  .rh__tank { flex: 1; width: auto; min-width: 0; padding: 6px 8px; }
+  .rh__lives { padding: 6px 7px 3px; }
+  .rh__lives svg { width: 19px; height: 19px; }
+  .rh__lives > div { gap: 2px; }
+  .rh__lives span { font-size: 10px; }
   .rh__line { bottom: 120px; }
   .set__face { grid-template-columns: minmax(0, 1fr) auto; }
   .set__lcd { grid-column: 1 / -1; }

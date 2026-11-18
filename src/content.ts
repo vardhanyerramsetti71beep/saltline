@@ -4,22 +4,22 @@ export type StripeId = 'none' | 'rally' | 'twin'
 export type SecretId = 'lamp' | 'deadair' | 'ghost' | 'island' | 'cq' | 'ferry'
 
 export const CHAPTERS = [
-  { id: 'cover', mile: 0, label: 'Cold Start' },
-  { id: 'story', mile: 21, label: 'The Night' },
-  { id: 'crew', mile: 64, label: 'The Crew' },
-  { id: 'atlas', mile: 112, label: 'The Atlas' },
-  { id: 'drive', mile: 180, label: 'The Drive' },
-  { id: 'garage', mile: 240, label: 'The Garage' },
-  { id: 'radio', mile: 301, label: 'The Radio' },
-  { id: 'logbook', mile: 340, label: 'Logbook' },
-  { id: 'finale', mile: 361, label: 'Last Ferry' },
+  { id: 'cover', km: 0, label: 'Cold Start' },
+  { id: 'story', km: 34, label: 'The Night' },
+  { id: 'crew', km: 103, label: 'The Crew' },
+  { id: 'atlas', km: 180, label: 'The Atlas' },
+  { id: 'drive', km: 290, label: 'The Drive' },
+  { id: 'garage', km: 385, label: 'The Garage' },
+  { id: 'radio', km: 485, label: 'The Radio' },
+  { id: 'logbook', km: 547, label: 'Logbook' },
+  { id: 'finale', km: 580, label: 'Last Ferry' },
 ] as const
 
 export const NIGHT = [
   { hour: '18:40', place: 'Port Sable', text: 'The sea took the lower town in spring. Tonight the Causeway Authority closes Route 9 for good.' },
   { hour: '21:00', place: 'Harbour Street', text: 'Radio Saltline is the last station telling people which roads are still open. The Authority wants it off the air by morning.' },
   { hour: '23:15', place: 'The Glass Flats', text: 'So Odalys Quill unbolts the transmitter, straps it into a rally wagon, and calls the two drivers who still owe her a favour.' },
-  { hour: '02:50', place: 'Ember Pines', text: 'The ridge is burning. The roadblocks are moving. Every mile they cover, the signal reaches another town.' },
+  { hour: '02:50', place: 'Ember Pines', text: 'The ridge is burning. The roadblocks are moving. Every kilometre they cover, the signal reaches another town.' },
   { hour: '06:00', place: 'Cape Lantern', text: 'The last ferry leaves at dawn. The signal goes with it, or it does not go at all.' },
 ]
 
@@ -44,7 +44,7 @@ export const LEADS = {
     bio: 'Kept the Cape ferries running for nineteen years with wire and bad language. He has never once agreed that a car is finished.',
     quote: 'It’s not broken. It’s negotiating.',
     perk: 'Field Repair',
-    perkText: 'Starts every run with one extra point of hull.',
+    perkText: 'Stays protected twice as long after losing a life.',
   },
 }
 
@@ -57,25 +57,25 @@ export const CREW = [
 
 export const REGIONS = [
   {
-    id: 'sable', name: 'Port Sable', from: 0, to: 112, hour: '21:00', weather: 'Rain, low cloud',
+    id: 'sable', name: 'Port Sable', from: 0, to: 180, hour: '21:00', weather: 'Rain, low cloud',
     blurb: 'A harbour city going under one street at a time. The cranes still work. Nobody is sure who for.',
     watch: 'Container trucks running the evacuation lanes',
     banter: { ines: 'Rain on the causeway. Keep it smooth and stay off the paint.', dov: 'Wipers are decorative. Good luck.' },
   },
   {
-    id: 'flats', name: 'The Glass Flats', from: 112, to: 240, hour: '23:15', weather: 'Clear, strange light',
-    blurb: 'Ninety miles of dry sea bed, white as paper. The heat stays long after dark and the road plays tricks.',
+    id: 'flats', name: 'The Glass Flats', from: 180, to: 385, hour: '23:15', weather: 'Clear, strange light',
+    blurb: 'A hundred and fifty kilometres of dry sea bed, white as paper. The heat stays long after dark and the road plays tricks.',
     watch: 'Mirages, and one toll booth that should not be there',
-    banter: { ines: 'Flat for ninety miles. Trust the notes, not your eyes.', dov: 'Salt in the bearings. I can hear it.' },
+    banter: { ines: 'Flat for 150 kilometres. Trust the notes, not your eyes.', dov: 'Salt in the bearings. I can hear it.' },
   },
   {
-    id: 'pines', name: 'Ember Pines', from: 240, to: 361 - 70, hour: '02:50', weather: 'Smoke, falling embers',
+    id: 'pines', name: 'Ember Pines', from: 385, to: 470, hour: '02:50', weather: 'Smoke, falling embers',
     blurb: 'The forest has been burning for nine days. The road is the only gap in it and the Authority knows that.',
     watch: 'Roadblocks at every narrow',
     banter: { ines: 'Smoke ahead. Roadblocks after it. Pick a gap and commit.', dov: 'If the paint blisters, that’s just character.' },
   },
   {
-    id: 'cape', name: 'Cape Lantern', from: 361 - 70, to: 361, hour: '05:20', weather: 'Sea fog, stars above it',
+    id: 'cape', name: 'Cape Lantern', from: 470, to: 580, hour: '05:20', weather: 'Sea fog, stars above it',
     blurb: 'The end of Route 9. One lighthouse, one ramp, one ferry with its engines already running.',
     watch: 'No street lights past the ridge',
     banter: { ines: 'I can see the lamp. Don’t you dare slow down.', dov: 'Nineteen years I worked that ramp. Hold on.' },
@@ -83,9 +83,9 @@ export const REGIONS = [
 ]
 
 export const CARS = {
-  sandpiper: { id: 'sandpiper' as const, name: 'Harlow Sandpiper', kind: 'Rally wagon', year: 1974, top: 132, grip: 1, tank: 1.12, hull: 3, note: 'Carries the transmitter, the spares and most of the argument.' },
-  merle: { id: 'merle' as const, name: 'Corvane Merle', kind: 'Grand tourer', year: 1971, top: 156, grip: 0.86, tank: 0.9, hull: 2, note: 'Very fast. Very thirsty. Very sure of itself.' },
-  ostler: { id: 'ostler' as const, name: 'Ostler Twelve', kind: 'Ferry-yard pickup', year: 1968, top: 114, grip: 0.92, tank: 1.36, hull: 4, note: 'Has already hit everything you are about to hit.' },
+  sandpiper: { id: 'sandpiper' as const, name: 'Harlow Sandpiper', kind: 'Rally wagon', year: 1974, top: 212, grip: 1, tank: 1.12, tough: 0.58, note: 'Carries the transmitter, the spares and most of the argument.' },
+  merle: { id: 'merle' as const, name: 'Corvane Merle', kind: 'Grand tourer', year: 1971, top: 250, grip: 0.86, tank: 0.9, tough: 0.42, note: 'Very fast. Very thirsty. Very sure of itself.' },
+  ostler: { id: 'ostler' as const, name: 'Ostler Twelve', kind: 'Ferry-yard pickup', year: 1968, top: 183, grip: 0.92, tank: 1.36, tough: 0.74, note: 'Has already hit everything you are about to hit.' },
 }
 
 export const PAINTS = [
@@ -114,10 +114,10 @@ export const DEAD_AIR = 87.9
 export const SECRETS: { id: SecretId; name: string; hint: string; found: string }[] = [
   { id: 'lamp', name: 'The Keeper’s Lamp', hint: 'The lamp on the cover answers three knocks.', found: 'Someone at Cape Lantern knocked back.' },
   { id: 'deadair', name: 'Dead Air', hint: 'Someone is reading numbers just below the first station.', found: 'The numbers repeat every eleven minutes.' },
-  { id: 'ghost', name: 'The Ghost Toll', hint: 'Keep far right on the Flats around mile 180.', found: 'You paid. You do not remember paying.' },
-  { id: 'island', name: 'Mile 404', hint: 'The atlas has an island nobody named.', found: 'Route 9 was never supposed to end at the Cape.' },
+  { id: 'ghost', name: 'The Ghost Toll', hint: 'Keep far right on the Flats around km 290.', found: 'You paid. You do not remember paying.' },
+  { id: 'island', name: 'Kilometre 650', hint: 'The atlas has an island nobody named.', found: 'Route 9 was never supposed to end at the Cape.' },
   { id: 'cq', name: 'Calling All Stations', hint: 'Two letters, twice. Every radio operator knows them.', found: 'Somebody out there answered.' },
-  { id: 'ferry', name: 'The Last Ferry', hint: 'Reach Cape Lantern before the tank runs dry.', found: 'The ramp came up behind you.' },
+  { id: 'ferry', name: 'The Last Ferry', hint: 'Reach Cape Lantern before your three lives run out.', found: 'The ramp came up behind you.' },
 ]
 
 export const CHEATS = [
@@ -129,11 +129,11 @@ export const CHEATS = [
   { code: 'HONKHONK', name: 'Everything honks', hint: 'Say it like the horn does.' },
 ]
 
-export function rankFor(miles: number, secrets: number, finished: boolean) {
+export function rankFor(km: number, secrets: number, finished: boolean) {
   if (finished && secrets === 6) return 'Saltline Legend'
   if (finished) return 'Last Ferry Runner'
-  if (miles >= 240) return 'Fire Line Driver'
-  if (miles >= 112) return 'Flats Courier'
-  if (miles > 0) return 'Causeway Rookie'
+  if (km >= 385) return 'Fire Line Driver'
+  if (km >= 180) return 'Flats Courier'
+  if (km > 0) return 'Causeway Rookie'
   return 'Unlicensed Passenger'
 }
