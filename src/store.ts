@@ -37,6 +37,7 @@ type State = Saved & {
   swapLead: () => void
   setLook: (patch: Partial<Pick<Saved, 'paint' | 'stripe'>>) => void
   chooseCar: (id: CarId) => void
+  spend: (amount: number) => boolean
   buyCar: (id: CarId) => boolean
   buyUpgrade: (id: CarId, upgrade: UpgradeId) => boolean
   setLevel: (n: number) => void
@@ -109,6 +110,12 @@ export const useGame = create<State>((set, get) => ({
   setLook: (patch) => set(patch),
   chooseCar: (id) => {
     if (get().owned.includes(id)) set({ car: id })
+  },
+  spend: (amount) => {
+    const s = get()
+    if (amount < 0 || s.coins < amount) return false
+    set({ coins: s.coins - amount })
+    return true
   },
   buyCar: (id) => {
     const s = get()

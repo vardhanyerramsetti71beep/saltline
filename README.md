@@ -9,6 +9,7 @@ A playable teaser for a road game that does not exist. Drive 580 km across the i
 - An interactive atlas of Route 9
 - A 3D road game with four levels, each on a new map: Route 9, Frostline Pass, Monsoon Delta and Red Canyon Run
 - Three lives per run, fuel that burns three times faster on boost, traffic, roadblocks and coins
+- Out of lives? Spend coins to respawn with one extra life; each respawn in the same run costs double (100, 200, 400...)
 - A pit stop at the end of every level where you park in a marked bay to unlock the next level
 - Six secrets on every level, plus four hidden in the page
 - A garage shop: spend coins on nine cars and trucks and tune speed, fuel range and handling

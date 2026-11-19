@@ -7,7 +7,7 @@ import { levelOpen, upgradesOf, useGame } from '../store'
 import type { DriveGame, DriveHud } from '../three/drive'
 import { VEHICLES, statsFor } from '../vehicles'
 
-const IDLE: DriveHud = { phase: 'attract', level: 0, kmh: 0, km: 0, length: 580, fuel: 100, lives: 3, livesMax: 3, coins: 0, region: 0, count: 3, reason: '', lostWhy: '', boost: false, park: null }
+const IDLE: DriveHud = { phase: 'attract', level: 0, kmh: 0, km: 0, length: 580, fuel: 100, lives: 3, livesMax: 3, coins: 0, region: 0, count: 3, reason: '', lostWhy: '', boost: false, park: null, respawnCost: 100, respawns: 0 }
 
 const Heart = ({ on }: { on: boolean }) => (
   <svg viewBox="0 0 24 24" className={on ? 'on' : ''} aria-hidden="true">
@@ -197,6 +197,17 @@ export function Drive() {
     leave()
     setTimeout(() => go(id), 80)
   }
+  /** Pays for one more life: coins picked up in this run are spent first, then the wallet. */
+  const buyLife = () => {
+    const g = game.current
+    if (!g || g.phase !== 'down') return
+    const cost = g.respawnCost
+    const s = useGame.getState()
+    if (s.coins + hud.coins < cost) return audio.fail()
+    const fromRun = g.takeRunCoins(cost)
+    if (!s.spend(cost - fromRun)) return audio.fail()
+    g.respawn()
+  }
   const enterCode = (e: FormEvent) => {
     e.preventDefault()
     const ok = useGame.getState().cheat(code)
@@ -223,7 +234,7 @@ export function Drive() {
   return (
     <section id="drive" className="chapter drive">
       <ChapterHead km={290} title="Get the signal through">
-        Four levels, each on a new map. Collect coins, watch the fuel, miss the roadblocks and park at the pit stop to unlock the next level. Every level hides six secrets.
+        Four levels, each on a new map. Collect coins, watch the fuel, miss the roadblocks and park at the pit stop to unlock the next level. Out of lives? Spend coins to respawn, and each respawn in a run costs double. Every level hides six secrets.
       </ChapterHead>
       <div ref={ref} className={`stage ${live ? 'stage--live' : ''} ${hud.boost ? 'is-boost' : ''}`}>
         <canvas ref={canvas} aria-label="3D road trip game" />
@@ -327,6 +338,27 @@ export function Drive() {
                 </div>
               </div>
             )}
+
+            {hud.phase === 'down' && (() => {
+              const cost = hud.respawnCost
+              const have = coins + hud.coins
+              const short = cost - have
+              return (
+                <div className="stage__panel stage__panel--center stage__panel--down">
+                  <span className="stage__kicker">Out of lives at km {Math.floor(hud.km)}</span>
+                  <h3>Respawn?</h3>
+                  <p>{hud.reason}</p>
+                  <div className="respawn">
+                    <span>One extra life</span>
+                    <b><Coin />{cost.toLocaleString()}</b>
+                    <small>{hud.respawns ? `Respawn ${hud.respawns + 1} this run. ` : ''}The next one costs {(cost * 2).toLocaleString()}.</small>
+                  </div>
+                  <button className="btn btn--solid btn--big" disabled={short > 0} onClick={buyLife}>Respawn for {cost.toLocaleString()} coins</button>
+                  <p className="stage__note">{short > 0 ? `You have ${have.toLocaleString()} coins. You need ${short.toLocaleString()} more.` : `You have ${have.toLocaleString()} coins, ${hud.coins} of them from this run.`}</p>
+                  <button className="btn btn--light" onClick={() => game.current?.giveUp()}>End the run</button>
+                </div>
+              )
+            })()}
 
             {over && (
               <div className="stage__panel stage__panel--center">

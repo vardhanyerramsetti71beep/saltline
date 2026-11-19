@@ -549,3 +549,11 @@ legend b { margin-left: 6px; color: var(--accent-text); }
   .pads button { height: 72px; }
   .rh__line { bottom: 100px; }
 }
+
+/* Paid respawn */
+.respawn { display: grid; justify-items: center; gap: 2px; padding: 12px 10px 9px; border: 2px dashed #13192b; }
+.respawn span { font: 600 12px var(--mono); text-transform: uppercase; }
+.respawn b { display: flex; align-items: center; font: 900 52px/1 var(--display); }
+.respawn b .coin { font-size: 34px; }
+.respawn small { font-size: 13px; color: #464c5c; }
+.stage__panel--down { border-color: #e0412a; }

@@ -7,11 +7,13 @@ import { buildCar, type CarLook } from './car'
 import { bendUniform, bendable, box, cone, cyl, flatVertex, merged } from './kit'
 import { BAY_X, WALL_Z, landmarkGroup, pitGroup, propGeometry, relicGeometry, trafficModels } from './props'
 
-export type Phase = 'attract' | 'count' | 'run' | 'park' | 'paused' | 'over' | 'win'
+export type Phase = 'attract' | 'count' | 'run' | 'park' | 'paused' | 'down' | 'over' | 'win'
+export const RESPAWN_BASE = 100
 export type ParkHud = { metres: number; aligned: boolean; slow: boolean; reverse: boolean }
 export type DriveHud = {
   phase: Phase; level: number; kmh: number; km: number; length: number; fuel: number; lives: number; livesMax: number
   coins: number; region: number; count: number; reason: string; lostWhy: string; boost: boolean; park: ParkHud | null
+  respawnCost: number; respawns: number
 }
 export type DriveEvents = {
   hud: (h: DriveHud) => void
@@ -104,6 +106,8 @@ export class DriveGame {
   private park: ParkHud | null = null
   private glowPulse = 0
   private parkOffset = { dx: 0, dz: 0 }
+  private respawns = 0
+  private downFrom: Phase = 'run'
 
   constructor(private canvas: HTMLCanvasElement, look: CarLook, stats: Stats, lead: LeadId, level: number, private events: DriveEvents) {
     this.look = look
@@ -460,10 +464,63 @@ export class DriveGame {
     this.straight = 1
     this.parkTimer = 0
     this.park = null
+    this.respawns = 0
     for (const e of this.entities) {
       e.on = false
       e.obj.visible = false
     }
+  }
+
+  /** What the next paid respawn costs: 100 coins, then double for every respawn already bought this run. */
+  get respawnCost() {
+    return RESPAWN_BASE * 2 ** this.respawns
+  }
+
+  /** Spends coins collected during this run, and returns how many were taken. */
+  takeRunCoins(amount: number) {
+    const taken = Math.min(this.coins, Math.max(0, amount))
+    this.coins -= taken
+    this.pushHud(true)
+    return taken
+  }
+
+  /** Out of lives: the run waits while the player decides whether to buy another life. */
+  private goDown(reason: string) {
+    this.downFrom = this.phase === 'park' ? 'park' : 'run'
+    this.phase = 'down'
+    this.reason = reason
+    this.boosting = false
+    audio.engineStop()
+    audio.fail()
+    this.pushHud(true)
+  }
+
+  /** Brings the car back with one life. The caller has already taken the coins. */
+  respawn() {
+    if (this.phase !== 'down') return
+    this.respawns++
+    this.lives = 1
+    this.invuln = 3
+    this.fuel = Math.max(this.fuel, 45)
+    this.phase = this.downFrom
+    this.kmh = this.downFrom === 'park' ? 0 : 90
+    for (const e of this.entities) {
+      if (e.on && (e.kind === 'traffic' || e.kind === 'barrier' || e.kind === 'cones') && e.z > -90 && e.z < 20) {
+        e.on = false
+        e.obj.visible = false
+      }
+    }
+    audio.engineStart()
+    audio.unlock()
+    this.last = performance.now()
+    this.pushHud(true)
+  }
+
+  /** Declines the respawn and ends the run as a normal game over. */
+  giveUp() {
+    if (this.phase !== 'down') return
+    this.phase = this.downFrom
+    this.finish(false, this.reason)
   }
 
   begin() {
@@ -546,7 +603,7 @@ export class DriveGame {
 
     if (this.phase === 'attract') this.attract(dt)
     else if (driving) this.drive(dt)
-    else if (this.phase === 'win' || this.phase === 'over') this.kmh = Math.max(0, this.kmh - dt * (this.phase === 'win' ? 42 : 113))
+    else if (this.phase === 'win' || this.phase === 'over' || this.phase === 'down') this.kmh = Math.max(0, this.kmh - dt * (this.phase === 'win' ? 42 : 113))
 
     const paused = this.phase === 'paused'
     const vel = paused ? 0 : this.kmh * KMH_TO_UNITS
@@ -843,7 +900,7 @@ export class DriveGame {
     this.invuln = this.lead === 'dov' ? 3.6 : 1.8
     if (wall) this.invuln = 0.5
     this.pushHud(true)
-    if (this.lives <= 0) this.finish(false, lastWords)
+    if (this.lives <= 0) this.goDown(lastWords)
   }
 
   private finish(won: boolean, reason: string) {
@@ -936,6 +993,7 @@ export class DriveGame {
       phase: this.phase, level: this.level.n - 1, kmh: Math.round(this.kmh), km: this.km, length: this.level.length, fuel: this.fuel,
       lives: this.lives, livesMax: this.livesMax, coins: this.coins, region: this.displayRegion, count: Math.ceil(this.count),
       reason: this.reason, lostWhy: this.lostWhy, boost: this.boosting, park: this.phase === 'park' ? this.park : null,
+      respawnCost: this.respawnCost, respawns: this.respawns,
     })
   }
 
