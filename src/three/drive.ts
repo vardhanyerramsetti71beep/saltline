@@ -3,6 +3,7 @@ import { audio } from '../audio'
 import type { LeadId } from '../content'
 import { LEVELS, type Level, type LevelSecret } from '../levels'
 import { VEHICLE_ORDER, VEHICLES, type Stats } from '../vehicles'
+import { POWER_IDS, powerById, type PowerId } from '../powers'
 import { buildCar, type CarLook } from './car'
 import { bendUniform, bendable, box, cone, cyl, flatVertex, merged } from './kit'
 import { BAY_X, WALL_Z, landmarkGroup, pitGroup, propGeometry, relicGeometry, trafficModels } from './props'
@@ -13,13 +14,14 @@ export type ParkHud = { metres: number; aligned: boolean; slow: boolean; reverse
 export type DriveHud = {
   phase: Phase; level: number; kmh: number; km: number; length: number; fuel: number; lives: number; livesMax: number
   coins: number; region: number; count: number; reason: string; lostWhy: string; boost: boolean; park: ParkHud | null
-  respawnCost: number; respawns: number
+  respawnCost: number; respawns: number; powers: Partial<Record<PowerId, number>>
 }
 export type DriveEvents = {
   hud: (h: DriveHud) => void
   region: (index: number) => void
   park: () => void
   secret: (id: string) => void
+  power: (id: PowerId, from: 'road' | 'stock') => void
   end: (result: { won: boolean; level: number; km: number; coins: number; livesLost: number }) => void
 }
 export type Cheats = { infinite: boolean; blueprint: boolean; ironhide: boolean }
@@ -30,8 +32,8 @@ const SPAWN_Z = -340
 const PARK_KM = 1.6
 const KMH_TO_UNITS = 0.261
 
-type Kind = 'traffic' | 'barrier' | 'cones' | 'coin' | 'fuel' | 'relic' | 'landmark' | 'pit'
-type Entity = { kind: Kind; obj: THREE.Object3D; on: boolean; x: number; z: number; w: number; l: number; vz: number; hit: boolean; speed?: [number, number]; secret?: LevelSecret }
+type Kind = 'traffic' | 'barrier' | 'cones' | 'coin' | 'fuel' | 'power' | 'relic' | 'landmark' | 'pit'
+type Entity = { kind: Kind; obj: THREE.Object3D; on: boolean; x: number; z: number; w: number; l: number; vz: number; hit: boolean; speed?: [number, number]; secret?: LevelSecret; power?: PowerId }
 type Prop = { mesh: THREE.InstancedMesh; region: number; items: { x: number; z: number; s: number; ry: number; on: boolean }[]; min: number; max: number; spread: [number, number] }
 type PaletteState = { [K in 'top' | 'mid' | 'hor' | 'sun' | 'ground' | 'road' | 'line' | 'hemi' | 'low' | 'dir' | 'aurora']: THREE.Color } & { near: number; far: number; night: number; auroraLevel: number; sunDir: THREE.Vector3 }
 
@@ -108,6 +110,10 @@ export class DriveGame {
   private parkOffset = { dx: 0, dz: 0 }
   private respawns = 0
   private downFrom: Phase = 'run'
+  private active: Partial<Record<PowerId, number>> = {}
+  private nextPower = 700
+  private ghostShown = false
+  private shieldMesh?: THREE.Mesh
 
   constructor(private canvas: HTMLCanvasElement, look: CarLook, stats: Stats, lead: LeadId, level: number, private events: DriveEvents) {
     this.look = look
@@ -333,6 +339,18 @@ export class DriveGame {
     const fuelGeo = merged([box(1.1, 1.4, 0.55, 0, 1.1, 0, '#e0412a'), box(0.5, 0.26, 0.2, 0.2, 1.92, 0, '#f7f1e3'), box(0.8, 0.14, 0.58, 0, 1.1, 0, '#f7f1e3')])
     for (let i = 0; i < 3; i++) this.addEntity('fuel', new THREE.Mesh(fuelGeo, this.flat), 1.1, 1.1)
 
+    const orbGeo = new THREE.IcosahedronGeometry(0.72, 1)
+    const ringGeo = new THREE.TorusGeometry(1.05, 0.07, 8, 32)
+    const ringMat = bendable(new THREE.MeshBasicMaterial({ color: 0xffffff }))
+    for (let i = 0; i < 4; i++) {
+      const spin = new THREE.Group()
+      spin.add(new THREE.Mesh(orbGeo, bendable(new THREE.MeshBasicMaterial({ color: 0xffffff }))), new THREE.Mesh(ringGeo, ringMat))
+      spin.position.y = 1.5
+      const holder = new THREE.Group()
+      holder.add(spin)
+      this.addEntity('power', holder, 0.9, 0.9)
+    }
+
     this.buildLevelEntities()
   }
 
@@ -389,6 +407,13 @@ export class DriveGame {
   private spawnCar() {
     if (this.car) this.scene.remove(this.car)
     this.car = buildCar(this.look, bendable)
+    this.shieldMesh ??= new THREE.Mesh(
+      new THREE.SphereGeometry(1, 24, 16).scale(1.5, 1.15, 2.9).translate(0, 0.8, 0),
+      bendable(new THREE.MeshBasicMaterial({ color: 0x4fc3ff, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false })),
+    )
+    this.shieldMesh.visible = false
+    this.car.add(this.shieldMesh)
+    this.ghostShown = false
     this.car.traverse((o) => (o.frustumCulled = false))
     this.scene.add(this.car)
     this.applyBlueprint()
@@ -465,6 +490,9 @@ export class DriveGame {
     this.parkTimer = 0
     this.park = null
     this.respawns = 0
+    this.active = {}
+    this.nextPower = 700
+    this.showGhost(false)
     for (const e of this.entities) {
       e.on = false
       e.obj.visible = false
@@ -551,6 +579,54 @@ export class DriveGame {
     this.resetRun()
     this.kmh = 148
     this.pushHud(true)
+  }
+
+  /** Uses a power from the player's stock. Returns false when it cannot be used right now. */
+  usePower(id: PowerId) {
+    if (this.phase !== 'run' && this.phase !== 'park') return false
+    if (id === 'repair' && this.lives >= this.livesMax) return false
+    if (id === 'nitro' && this.phase === 'park') return false
+    this.activate(id, 'stock')
+    return true
+  }
+
+  private activate(id: PowerId, from: 'road' | 'stock') {
+    const p = powerById(id)
+    if (id === 'repair') {
+      if (this.lives < this.livesMax) this.lives++
+      else this.coins += 25
+    } else {
+      this.active[id] = Math.max(this.active[id] ?? 0, p.duration)
+      if (id === 'ghost') this.showGhost(true)
+    }
+    audio.power()
+    this.events.power(id, from)
+    this.pushHud(true)
+  }
+
+  private tickPowers(dt: number) {
+    for (const id of Object.keys(this.active) as PowerId[]) {
+      const left = (this.active[id] ?? 0) - dt
+      if (left > 0) this.active[id] = left
+      else {
+        delete this.active[id]
+        if (id === 'ghost') this.showGhost(false)
+        this.pushHud(true)
+      }
+    }
+  }
+
+  /** Ghost mode shows the car see-through. */
+  private showGhost(on: boolean) {
+    if (!this.car || on === this.ghostShown) return
+    this.ghostShown = on
+    this.car.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | undefined
+      if (!m || o === this.shieldMesh) return
+      m.transparent = on
+      m.opacity = on ? 0.35 : 1
+      m.needsUpdate = true
+    })
   }
 
   /** Called when the player sounds the horn. Honking at the level's landmark is one of its secrets. */
@@ -643,10 +719,15 @@ export class DriveGame {
       if (this.input.down) target = s.top * 0.4
       if (this.fuel <= 0) target = 0
       rate = target > this.kmh ? 0.85 : 2.1
+      if (this.active.nitro) {
+        target = s.top * 1.3
+        rate = 2.6
+      }
     }
     if (offroad) target *= 0.72
     this.kmh += (target - this.kmh) * Math.min(1, dt * rate)
-    this.boosting = !parking && this.input.up && this.fuel > 0
+    this.boosting = !parking && !this.active.nitro && this.input.up && this.fuel > 0
+    this.tickPowers(dt)
 
     const axis = this.input.axis || Number(this.input.right) - Number(this.input.left)
     const reach = 25 * s.grip * THREE.MathUtils.clamp(0.3 + Math.abs(this.kmh) / 150, 0.3, 1)
@@ -655,7 +736,7 @@ export class DriveGame {
     this.x = THREE.MathUtils.clamp(this.x + (this.vx + push) * dt, -SHOULDER + 1.1, SHOULDER - 1.1)
 
     this.km = Math.max(0, this.km + this.kmh * 0.02 * dt)
-    if (!this.cheats.infinite && !parking) {
+    if (!this.cheats.infinite && !parking && !this.active.nitro) {
       // Boost burns fuel three times faster; Ines's pace notes save a quarter of that.
       const burn = this.boosting ? (this.lead === 'ines' ? 2.4 : 3.2) : 1
       this.fuel = Math.max(0, this.fuel - (dt * (100 / 62) * burn) / s.tank)
@@ -695,6 +776,17 @@ export class DriveGame {
     if (this.dist > this.nextFuel) {
       this.nextFuel = this.dist + 560 + Math.random() * 180
       this.spawn('fuel', this.lane(), SPAWN_Z)
+    }
+    if (this.dist > this.nextPower) {
+      this.nextPower = this.dist + 900 + Math.random() * 500
+      const pool = POWER_IDS.filter((p) => p !== 'repair')
+      const id: PowerId = Math.random() < 0.12 ? 'repair' : pool[Math.floor(Math.random() * pool.length)]
+      const e = this.spawn('power', this.lane(), SPAWN_Z)
+      if (e) {
+        e.power = id
+        const orb = e.obj.children[0].children[0] as THREE.Mesh
+        ;(orb.material as THREE.MeshBasicMaterial).color.set(powerById(id).color)
+      }
     }
     for (const s of L.secrets) {
       if (s.type !== 'relic' || s.km === undefined || this.spawnedSecrets.has(s.id) || this.km < s.km - 25) continue
@@ -803,7 +895,18 @@ export class DriveGame {
     for (const e of this.entities) {
       if (!e.on) continue
       e.z += (vel - e.vz) * dt
-      if (e.kind === 'coin') e.obj.children[0].rotation.y += dt * 4
+      if (e.kind === 'coin') {
+        e.obj.children[0].rotation.y += dt * 4
+        // The coin magnet power pulls coins in from every lane while it lasts.
+        if (this.active.magnet && e.z > -50 && e.z < 4 && Math.abs(e.x - this.x) < 11) {
+          e.x += (this.x - e.x) * Math.min(1, dt * 7)
+          e.z += -e.z * Math.min(1, dt * 3)
+        }
+      }
+      if (e.kind === 'power') {
+        e.obj.children[0].rotation.y += dt * 2.5
+        e.obj.children[0].position.y = 1.5 + Math.sin(this.time * 3 + e.z) * 0.2
+      }
       if (e.kind === 'fuel') e.obj.rotation.y += dt * 2
       if (e.kind === 'relic') e.obj.rotation.y = Math.sin(this.time) * 0.15
       if (e.kind === 'landmark') {
@@ -844,6 +947,10 @@ export class DriveGame {
     this.car.rotation.y = THREE.MathUtils.lerp(this.car.rotation.y, -this.vx * 0.016, Math.min(1, dt * 9))
     this.car.rotation.z = THREE.MathUtils.lerp(this.car.rotation.z, -this.vx * 0.006, Math.min(1, dt * 8))
     this.car.visible = this.invuln <= 0 || Math.floor(this.time * 18) % 2 === 0
+    if (this.shieldMesh) {
+      this.shieldMesh.visible = !!this.active.shield
+      ;(this.shieldMesh.material as THREE.MeshBasicMaterial).opacity = 0.22 + Math.sin(this.time * 6) * 0.08
+    }
     this.headlights.position.x = this.x
   }
 
@@ -864,7 +971,7 @@ export class DriveGame {
     if (e.kind === 'coin') {
       e.on = false
       e.obj.visible = false
-      this.coins++
+      this.coins += this.active.double ? 2 : 1
       this.chain++
       audio.pickup(this.chain)
       return
@@ -874,6 +981,25 @@ export class DriveGame {
       e.obj.visible = false
       this.fuel = Math.min(100, this.fuel + 38)
       audio.fuel()
+      return
+    }
+    if (e.kind === 'power') {
+      e.on = false
+      e.obj.visible = false
+      if (e.power) this.activate(e.power, 'road')
+      return
+    }
+    // Ghost mode drives straight through; nitro and the shield smash the obstacle aside.
+    if (this.active.ghost) return
+    if (this.active.nitro || this.active.shield) {
+      if (!this.active.nitro) delete this.active.shield
+      this.shake = 0.35
+      audio.smash()
+      if (e.kind !== 'traffic') {
+        e.on = false
+        e.obj.visible = false
+      } else e.z = Math.min(e.z, -e.l - 3)
+      this.pushHud(true)
       return
     }
     if (this.invuln > 0) return
@@ -981,7 +1107,7 @@ export class DriveGame {
     }
     if (finale) this.camera.lookAt(this.x, 1, 0)
     else this.camera.lookAt(this.x * 0.78, parking ? 0.4 : 1.25, -13)
-    const speedFov = (wide ? 82 : 64) + Math.min(10, Math.abs(this.kmh) / 26) + (this.boosting ? 6 : 0)
+    const speedFov = (wide ? 82 : 64) + Math.min(10, Math.abs(this.kmh) / 26) + (this.boosting ? 6 : 0) + (this.active.nitro ? 12 : 0)
     this.camera.fov += (speedFov - this.camera.fov) * Math.min(1, dt * 2)
     this.camera.updateProjectionMatrix()
   }
@@ -994,6 +1120,7 @@ export class DriveGame {
       lives: this.lives, livesMax: this.livesMax, coins: this.coins, region: this.displayRegion, count: Math.ceil(this.count),
       reason: this.reason, lostWhy: this.lostWhy, boost: this.boosting, park: this.phase === 'park' ? this.park : null,
       respawnCost: this.respawnCost, respawns: this.respawns,
+      powers: Object.fromEntries(Object.entries(this.active).map(([k, v]) => [k, Math.round((v ?? 0) * 10) / 10])),
     })
   }
 

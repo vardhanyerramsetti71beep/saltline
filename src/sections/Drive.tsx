@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type PointerEvent as RP } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type PointerEvent as RP } from 'react'
 import { audio } from '../audio'
 import { LEADS, PAINTS, STATIONS } from '../content'
 import { ChapterHead, go, useNear } from '../hooks'
@@ -6,8 +6,9 @@ import { LEVELS } from '../levels'
 import { levelOpen, upgradesOf, useGame } from '../store'
 import type { DriveGame, DriveHud } from '../three/drive'
 import { VEHICLES, statsFor } from '../vehicles'
+import { POWERS, powerById, type PowerId } from '../powers'
 
-const IDLE: DriveHud = { phase: 'attract', level: 0, kmh: 0, km: 0, length: 580, fuel: 100, lives: 3, livesMax: 3, coins: 0, region: 0, count: 3, reason: '', lostWhy: '', boost: false, park: null, respawnCost: 100, respawns: 0 }
+const IDLE: DriveHud = { phase: 'attract', level: 0, kmh: 0, km: 0, length: 580, fuel: 100, lives: 3, livesMax: 3, coins: 0, region: 0, count: 3, reason: '', lostWhy: '', boost: false, park: null, respawnCost: 100, respawns: 0, powers: {} }
 
 const Heart = ({ on }: { on: boolean }) => (
   <svg viewBox="0 0 24 24" className={on ? 'on' : ''} aria-hidden="true">
@@ -30,6 +31,7 @@ export function Drive() {
   const [lost, setLost] = useState<{ id: number; left: number; why: string } | null>(null)
   const [result, setResult] = useState<Result | null>(null)
   const [code, setCode] = useState('')
+  const [flash, setFlash] = useState<{ id: number; power: PowerId; from: 'road' | 'stock' } | null>(null)
   const [codeNote, setCodeNote] = useState('')
   const livesSeen = useRef(3)
   const radioDeclined = useRef(false)
@@ -48,6 +50,7 @@ export function Drive() {
   const upgrades = useGame((s) => s.upgrades)
   const radioOn = useGame((s) => s.radioOn)
   const radioFreq = useGame((s) => s.radioFreq)
+  const powers = useGame((s) => s.powers)
   const setLevel = useGame((s) => s.setLevel)
   const setDriving = useGame((s) => s.setDriving)
   const live = hud.phase !== 'attract'
@@ -68,6 +71,7 @@ export function Drive() {
           region: (i) => speak(i),
           park: () => say('Pit stop ahead. Slow down and stop inside the bay.'),
           secret: (id) => useGame.getState().find(id),
+          power: (power, from) => setFlash({ id: Date.now(), power, from }),
           end: (r) => {
             const { bonus } = useGame.getState().endRun(r)
             setResult({ won: r.won, level: r.level, coins: r.coins, bonus, km: r.km })
@@ -111,6 +115,12 @@ export function Drive() {
   }, [hud.lives, hud.lostWhy])
 
   useEffect(() => {
+    if (!flash) return
+    const t = setTimeout(() => setFlash(null), 1600)
+    return () => clearTimeout(t)
+  }, [flash])
+
+  useEffect(() => {
     if (!lost) return
     const t = setTimeout(() => setLost(null), 1700)
     return () => clearTimeout(t)
@@ -139,6 +149,8 @@ export function Drive() {
         else g.pause()
       }
       if (e.code === 'KeyR' && !e.repeat) radio()
+      const digit = /^Digit([1-6])$/.exec(e.code)
+      if (digit && !e.repeat) firePower(POWERS[Number(digit[1]) - 1].id)
     }
     const up = (e: KeyboardEvent) => {
       const key = map[e.code]
@@ -197,6 +209,14 @@ export function Drive() {
     leave()
     setTimeout(() => go(id), 80)
   }
+  /** Uses one power from the saved stock. */
+  function firePower(id: PowerId) {
+    const g = game.current
+    const s = useGame.getState()
+    if (!g || (s.powers[id] ?? 0) <= 0 || !g.usePower(id)) return audio.fail()
+    s.takePower(id)
+  }
+
   /** Pays for one more life: coins picked up in this run are spent first, then the wallet. */
   const buyLife = () => {
     const g = game.current
@@ -234,7 +254,7 @@ export function Drive() {
   return (
     <section id="drive" className="chapter drive">
       <ChapterHead km={290} title="Get the signal through">
-        Four levels, each on a new map. Collect coins, watch the fuel, miss the roadblocks and park at the pit stop to unlock the next level. Out of lives? Spend coins to respawn, and each respawn in a run costs double. Every level hides six secrets.
+        Four levels, each on a new map. Collect coins, watch the fuel, miss the roadblocks and park at the pit stop to unlock the next level. Grab special powers on the road or buy them in the garage, then fire them with keys 1 to 6. Out of lives? Spend coins to respawn, and each respawn in a run costs double. Every level hides six secrets.
       </ChapterHead>
       <div ref={ref} className={`stage ${live ? 'stage--live' : ''} ${hud.boost ? 'is-boost' : ''}`}>
         <canvas ref={canvas} aria-label="3D road trip game" />
@@ -257,10 +277,10 @@ export function Drive() {
                 )
               })}
             </div>
-            <p className="stage__keys"><kbd>← →</kbd> steer <kbd>↑</kbd> boost <kbd>↓</kbd> brake <kbd>Space</kbd> horn <kbd>R</kbd> radio <kbd>Esc</kbd> pause</p>
+            <p className="stage__keys"><kbd>← →</kbd> steer <kbd>↑</kbd> boost <kbd>↓</kbd> brake <kbd>Space</kbd> horn <kbd>R</kbd> radio <kbd>1–6</kbd> powers <kbd>Esc</kbd> pause</p>
             <p className="stage__touch">Hold the on-screen pedals to steer, brake and boost.</p>
             <button className="btn btn--solid btn--big" disabled={!ready} onClick={() => start()}>{ready ? `Start level ${L.n}` : 'Fuelling up'}</button>
-            <p className="stage__best"><Coin /> {coins.toLocaleString()} coins · 3 lives · boost burns fuel fast</p>
+            <p className="stage__best"><Coin /> {coins.toLocaleString()} coins · 3 lives · powers in stock: {POWERS.filter((p) => (powers[p.id] ?? 0) > 0).map((p) => `${powers[p.id]} ${p.name.toLowerCase()}`).join(', ') || 'none, buy some in the garage'}</p>
           </div>
         )}
 
@@ -296,6 +316,32 @@ export function Drive() {
                 <span>Pit stop · {L.pitStop}</span>
                 <b>{hud.park.aligned ? (hud.park.slow ? 'Hold it…' : 'Brake now!') : hud.park.metres > 2 ? `${hud.park.metres} m to the bay` : 'Line up with the bay'}</b>
                 <small>{hud.park.reverse ? 'Reversing' : 'Steer into the glowing bay. Hold ↓ to brake, keep holding to reverse.'}</small>
+              </div>
+            )}
+
+            {(hud.phase === 'run' || hud.phase === 'park') && (
+              <div className="powerbar" role="group" aria-label="Special powers">
+                {POWERS.map((p) => {
+                  const stock = powers[p.id] ?? 0
+                  const left = hud.powers[p.id]
+                  return (
+                    <button key={p.id} className={`pw ${left ? 'on' : ''}`} style={{ '--pw': p.color } as CSSProperties} disabled={!stock && !left}
+                      onPointerDown={(e) => { e.preventDefault(); firePower(p.id) }} aria-label={`${p.name}, ${stock} in stock. ${p.effect}`} title={`${p.key}: ${p.name}`}>
+                      {left ? <i style={{ height: `${Math.min(100, (left / Math.max(1, p.duration)) * 100)}%` }} /> : null}
+                      <span className="pw__icon">{p.icon}</span>
+                      <small>{left ? `${Math.ceil(left)}s` : `×${stock}`}</small>
+                      <kbd>{p.key}</kbd>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {flash && (hud.phase === 'run' || hud.phase === 'park') && (
+              <div className="rh__power" key={flash.id} style={{ '--pw': powerById(flash.power).color } as CSSProperties} role="status">
+                <span>{flash.from === 'road' ? 'Picked up' : 'Power on'}</span>
+                <b>{powerById(flash.power).name}</b>
+                <small>{powerById(flash.power).effect}</small>
               </div>
             )}
 

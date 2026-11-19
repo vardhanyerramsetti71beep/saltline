@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { audio } from './audio'
 import { CHEATS, PAGE_SECRETS, STATIONS, type LeadId, type StripeId } from './content'
 import { LEVELS, LEVEL_SECRETS } from './levels'
+import { MAX_POWER_STOCK, powerById, type PowerId } from './powers'
 import { MAX_UPGRADE, NO_UPGRADES, VEHICLES, upgradeCost, type CarId, type UpgradeId, type Upgrades } from './vehicles'
 
 type Saved = {
@@ -20,6 +21,7 @@ type Saved = {
   level: number
   levelsDone: number[]
   openRoad: boolean
+  powers: Partial<Record<PowerId, number>>
 }
 
 export type Toast = { id: number; kicker: string; title: string; body?: string }
@@ -38,6 +40,8 @@ type State = Saved & {
   setLook: (patch: Partial<Pick<Saved, 'paint' | 'stripe'>>) => void
   chooseCar: (id: CarId) => void
   spend: (amount: number) => boolean
+  buyPower: (id: PowerId) => boolean
+  takePower: (id: PowerId) => boolean
   buyCar: (id: CarId) => boolean
   buyUpgrade: (id: CarId, upgrade: UpgradeId) => boolean
   setLevel: (n: number) => void
@@ -61,7 +65,7 @@ const KEY = 'saltline.v3'
 const DEFAULTS: Saved = {
   lead: 'ines', car: 'sandpiper', paint: 'signal', stripe: 'rally', callsign: 'NIGHT DRIVER',
   secrets: [], cheats: [], bestKm: 0, bestCoins: 0, coins: 150, owned: ['sandpiper'], upgrades: {},
-  level: 0, levelsDone: [], openRoad: false,
+  level: 0, levelsDone: [], openRoad: false, powers: { shield: 1, nitro: 1 },
 }
 
 function load(): Saved {
@@ -115,6 +119,22 @@ export const useGame = create<State>((set, get) => ({
     const s = get()
     if (amount < 0 || s.coins < amount) return false
     set({ coins: s.coins - amount })
+    return true
+  },
+  buyPower: (id) => {
+    const s = get()
+    const p = powerById(id)
+    const have = s.powers[id] ?? 0
+    if (have >= MAX_POWER_STOCK || s.coins < p.price) return false
+    set({ coins: s.coins - p.price, powers: { ...s.powers, [id]: have + 1 } })
+    audio.unlock()
+    return true
+  },
+  takePower: (id) => {
+    const s = get()
+    const have = s.powers[id] ?? 0
+    if (have <= 0) return false
+    set({ powers: { ...s.powers, [id]: have - 1 } })
     return true
   },
   buyCar: (id) => {
@@ -229,7 +249,7 @@ useGame.subscribe((s) => {
   const saved: Saved = {
     lead: s.lead, car: s.car, paint: s.paint, stripe: s.stripe, callsign: s.callsign, secrets: s.secrets, cheats: s.cheats,
     bestKm: s.bestKm, bestCoins: s.bestCoins, coins: s.coins, owned: s.owned, upgrades: s.upgrades, level: s.level,
-    levelsDone: s.levelsDone, openRoad: s.openRoad,
+    levelsDone: s.levelsDone, openRoad: s.openRoad, powers: s.powers,
   }
   try {
     localStorage.setItem(KEY, JSON.stringify(saved))

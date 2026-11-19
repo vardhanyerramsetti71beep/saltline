@@ -7,6 +7,8 @@ import { paintUnlocked, upgradesOf, useGame } from '../store'
 import type { GarageView } from '../three/garage'
 import { MAX_UPGRADE, UPGRADES, VEHICLE_ORDER, VEHICLES, statsFor, upgradeCost, type CarId } from '../vehicles'
 import { Coin } from './Drive'
+import { MAX_POWER_STOCK, POWERS } from '../powers'
+import type { CSSProperties } from 'react'
 
 const Bar = ({ label, value, text }: { label: string; value: number; text: string }) => (
   <div className="stat"><span>{label}</span><i><b style={{ width: `${Math.min(100, value)}%` }} /></i><em>{text}</em></div>
@@ -28,6 +30,8 @@ export function Garage() {
   const chooseCar = useGame((s) => s.chooseCar)
   const buyCar = useGame((s) => s.buyCar)
   const buyUpgrade = useGame((s) => s.buyUpgrade)
+  const powers = useGame((s) => s.powers)
+  const buyPower = useGame((s) => s.buyPower)
   const secrets = useGame((s) => s.secrets)
   const cheats = useGame((s) => s.cheats)
   const unlocked = paintUnlocked({ secrets, cheats })
@@ -73,7 +77,7 @@ export function Garage() {
   return (
     <section id="garage" className="chapter garage">
       <ChapterHead km={385} title="Dov’s garage">
-        Spend the coins you collect on the road. Buy new cars and trucks, then tune their speed, fuel tank and handling.
+        Spend the coins you collect on the road. Buy new cars and trucks, tune their speed, fuel tank and handling, and stock up on special powers for your runs.
       </ChapterHead>
       <div className="bay">
         <div className="bay__view" ref={ref}>
@@ -130,6 +134,24 @@ export function Garage() {
               </div>
             </fieldset>
           )}
+          <fieldset>
+            <legend>Special powers <b>use them with keys 1 to 6</b></legend>
+            <div className="powershop">
+              {POWERS.map((p) => {
+                const have = powers[p.id] ?? 0
+                return (
+                  <div className="pshop" key={p.id} style={{ '--pw': p.color } as CSSProperties}>
+                    <span className="pshop__icon" aria-hidden="true">{p.icon}</span>
+                    <div><b>{p.key} · {p.name}</b><span>{p.effect}</span></div>
+                    <em aria-label={`${have} in stock`}>{have}/{MAX_POWER_STOCK}</em>
+                    <button className="btn" disabled={have >= MAX_POWER_STOCK || coins < p.price} onClick={() => (buyPower(p.id) ? null : audio.fail())} aria-label={`Buy ${p.name} for ${p.price} coins`}>
+                      {have >= MAX_POWER_STOCK ? 'Full' : <><Coin /> {p.price}</>}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </fieldset>
           <fieldset>
             <legend>Paint <b>{PAINTS.find((p) => p.id === paint)?.name}</b></legend>
             <div className="swatches">

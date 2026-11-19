@@ -185,6 +185,7 @@ export function Menu() {
               <div><dt>Space</dt><dd>Horn, try it at each level's landmark</dd></div>
               <div><dt>Esc</dt><dd>Pause the run</dd></div>
               <div><dt>R</dt><dd>Change radio station</dd></div>
+              <div><dt>1 to 6</dt><dd>Use a special power</dd></div>
               <div><dt>Shift + Tab</dt><dd>Switch driver</dd></div>
             </dl>
             <button className="btn btn--quiet" onClick={() => (sure ? (reset(), setSure(false)) : setSure(true))}>{sure ? 'Tap again to erase progress' : 'Erase my progress'}</button>

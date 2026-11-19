@@ -174,6 +174,18 @@ class AudioEngine {
     if (t < 0) return
     ;[69, 76, 81, 88].forEach((n, i) => this.tone({ type: 'triangle', freq: midi(n), t: t + i * 0.09, dur: 0.5, vol: 0.13 }))
   }
+  power() {
+    const t = this.now()
+    if (t < 0) return
+    this.tone({ type: 'square', freq: 330, to: 1320, t, dur: 0.22, vol: 0.07, cutoff: 3000 })
+    ;[84, 88, 91].forEach((n, i) => this.tone({ type: 'triangle', freq: midi(n), t: t + 0.08 + i * 0.05, dur: 0.18, vol: 0.09 }))
+  }
+  smash() {
+    const t = this.now()
+    if (t < 0) return
+    this.burst(t, 0.25, 0.4, 'lowpass', 1200)
+    this.tone({ type: 'sawtooth', freq: 240, to: 90, t, dur: 0.18, vol: 0.12, cutoff: 1200 })
+  }
   fail() {
     const t = this.now()
     if (t >= 0) this.tone({ type: 'sawtooth', freq: 180, to: 60, t, dur: 0.7, vol: 0.2, cutoff: 800 })
