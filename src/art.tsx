@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import type { CarId } from './content'
+import { sideView, type CarId } from './vehicles'
 
 export const INK = '#13192b'
 export const PAPER = '#efe6d3'
@@ -262,32 +262,17 @@ export function Portrait({ who }: { who: keyof typeof SKIN }) {
   )
 }
 
-export const CAR_SIDE: Record<CarId, { body: string; glass: string; wheels: [number, number][]; r: number }> = {
-  sandpiper: {
-    body: 'M8 60V40q2-8 10-10l8-17q2-3 7-3h98q6 0 10 4l24 21 48 5q15 2 19 12l2 8Z',
-    glass: 'M36 16h44v15H29Zm50 0h44q4 0 7 3l15 12H86Z',
-    wheels: [[54, 60], [186, 60]], r: 15,
-  },
-  merle: {
-    body: 'M6 60V43q2-6 10-8l34-6q24-16 48-17h30q16 1 30 18l54 6q18 3 22 14l1 10Z',
-    glass: 'M60 30q18-11 38-12v12Zm44-12h24q10 1 20 12h-44Z',
-    wheels: [[52, 60], [188, 60]], r: 15,
-  },
-  ostler: {
-    body: 'M6 60V32h86l4-22q1-3 4-3h50q4 0 7 3l15 23 44 3q10 1 14 9l2 15Z',
-    glass: 'M104 13h20v20h-24Zm26 0h19q3 0 5 3l11 17h-35Z',
-    wheels: [[50, 60], [190, 60]], r: 17,
-  },
-}
-
 export function CarSide({ car, color, className }: { car: CarId; color: string; className?: string }) {
-  const c = CAR_SIDE[car]
+  const s = sideView(car)
   return (
-    <svg className={className} viewBox="0 0 240 80" aria-hidden="true">
-      <path d={c.body} fill={color} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
-      <path d={c.glass} fill={INK} />
-      {c.wheels.map(([x, y]) => (
-        <g key={x}><circle cx={x} cy={y} r={c.r} fill={INK} /><circle cx={x} cy={y} r={c.r * 0.42} fill={PAPER} /></g>
+    <svg className={className} viewBox={s.viewBox} aria-hidden="true">
+      <path d={s.body} fill={color} stroke={INK} strokeWidth="3" strokeLinejoin="round" />
+      {s.paint && <path d={s.paint} fill={color} stroke={INK} strokeWidth="3" strokeLinejoin="round" />}
+      <path d={s.glass} fill={INK} />
+      <path d={s.roof} fill={color} stroke={INK} strokeWidth="2.500" strokeLinejoin="round" />
+      {s.trim && <path d={s.trim} fill={INK} />}
+      {s.wheels.map(([x, y]) => (
+        <g key={x}><circle cx={x} cy={y} r={s.r} fill={INK} /><circle cx={x} cy={y} r={s.r * 0.42} fill={PAPER} /></g>
       ))}
     </svg>
   )

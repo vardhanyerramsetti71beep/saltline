@@ -455,3 +455,97 @@ legend b { margin-left: 6px; color: var(--accent-text); }
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }
   .reveal { opacity: 1; transform: none; }
 }
+
+/* Coins, levels, shop, parking and in-game radio */
+.coin { display: inline-block; width: 0.95em; height: 0.95em; margin-right: 0.3em; vertical-align: -0.12em; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe27a, #f5c533 45%, #c98e14 100%); box-shadow: inset 0 0 0 0.12em #c98e14; }
+.chip--coins { font-weight: 600; }
+.stage__panel--menu { max-height: calc(100% - 24px); overflow: auto; width: min(460px, calc(100% - 24px)); }
+.levels { display: grid; gap: 5px; width: 100%; }
+.levels button { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 7px 10px 5px; border: 2px solid #13192b; text-align: left; background: transparent; }
+.levels button b { grid-row: span 2; display: grid; place-items: center; width: 34px; height: 34px; padding-top: 3px; border-radius: 50%; background: #13192b; color: #efe6d3; font: 900 20px var(--display); }
+.levels button span { font-weight: 800; font-size: 15px; line-height: 1.1; }
+.levels button small { font: 11px var(--mono); color: #464c5c; text-transform: uppercase; }
+.levels button.on { background: #13192b; color: #efe6d3; }
+.levels button.on b { background: var(--accent-print); }
+.levels button.on small { color: #cfc8b8; }
+.levels button:disabled { opacity: 0.5; }
+.stage__note { font-size: 13px; }
+.stage__code { display: grid; gap: 4px; text-align: left; }
+.stage__code label { font: 12px var(--mono); text-transform: uppercase; }
+.stage__code > div { display: flex; gap: 6px; }
+.stage__code input { flex: 1; min-width: 0; height: 46px; padding: 4px 10px 0; border: 2px solid #13192b; background: #fff; color: #13192b; font: 600 17px var(--mono); }
+.stage__code .btn { min-height: 46px; padding-inline: 14px; background: #13192b; color: #efe6d3; }
+.stage__code p { min-height: 18px; font-size: 13px; color: #a82a18; }
+.rh__radio { display: inline-flex; align-items: center; gap: 6px; height: 46px; padding: 3px 12px 0; max-width: 220px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; background: rgba(10, 14, 27, 0.86); color: #cfc8b8; font: 600 12px var(--mono); text-transform: uppercase; }
+.rh__radio span { font-size: 18px; color: #8a8f9c; }
+.rh__radio.on { color: #efe6d3; }
+.rh__radio.on span { color: var(--mustard); animation: beat 0.8s ease-in-out infinite alternate; }
+@keyframes beat { to { transform: scale(1.25); } }
+.rh__coins { padding: 8px 12px 5px; background: rgba(10, 14, 27, 0.86); }
+.rh__coins b { display: flex; align-items: center; font: 900 40px/0.95 var(--display); }
+.rh__coins b .coin { font-size: 26px; }
+.rh__coins span { font: 11px var(--mono); text-transform: uppercase; color: #cfc8b8; }
+.rh__fuel i.boost { background: #ff8a3a; animation: burn 0.25s linear infinite alternate; }
+@keyframes burn { to { opacity: 0.55; } }
+.stage.is-boost::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 120px rgba(255, 140, 50, 0.35); }
+.rh__park { position: absolute; left: 50%; top: 84px; translate: -50% 0; z-index: 4; display: grid; justify-items: center; gap: 2px; width: min(460px, calc(100% - 24px)); padding: 10px 16px 8px; text-align: center; background: rgba(10, 14, 27, 0.9); border: 3px solid var(--mustard); }
+.rh__park.ok { border-color: #3ddc84; }
+.rh__park span { font: 600 12px var(--mono); text-transform: uppercase; color: var(--mustard); }
+.rh__park.ok span { color: #3ddc84; }
+.rh__park b { font: 900 clamp(30px, 4vw, 46px)/1 var(--display); text-transform: uppercase; }
+.rh__park small { font-size: 13px; color: #cfc8b8; }
+.pads { grid-template-columns: 1fr 1fr 0.8fr 1fr 1fr !important; }
+.pads__text { font-size: 19px !important; }
+.pads__horn { background: rgba(226, 163, 42, 0.92) !important; }
+.bay__wallet { position: absolute; right: 14px; top: 12px; padding: 7px 11px 4px; background: var(--ink); color: var(--paper); font: 600 13px var(--mono); }
+.bay__cars { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bay__cars button { display: grid; justify-items: center; gap: 1px; padding: 6px 4px 5px; }
+.bay__cars button svg { width: 100%; height: 34px; }
+.bay__cars button span { font: 600 11px var(--mono); }
+.bay__cars button small { font: 10px var(--mono); color: var(--ink-soft); }
+.bay__cars button.on small { color: var(--paper); }
+.bay__cars button.active:not(.on) { box-shadow: inset 0 0 0 2px var(--accent); }
+.stat { grid-template-columns: 82px 1fr 74px; }
+.stat em { font: 11px var(--mono); font-style: normal; text-align: right; }
+.bay__buy { display: grid; gap: 6px; }
+.bay__buy p { font-size: 14px; color: var(--ink-soft); }
+.upgrades { display: grid; gap: 6px; }
+.upgrade { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 6px 0 4px; border-bottom: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); }
+.upgrade b { display: block; font-size: 15px; }
+.upgrade span { font: 11px var(--mono); color: var(--ink-soft); }
+.upgrade i { display: flex; gap: 3px; }
+.upgrade s { width: 10px; height: 14px; border: 1.500px solid var(--ink); }
+.upgrade s.on { background: var(--accent); border-color: var(--accent); }
+.upgrade .btn { min-height: 38px; min-width: 86px; padding: 8px 10px 5px; font-size: 13px; }
+.secret-groups { display: grid; gap: 6px; }
+.secret-groups details { border: 2px solid color-mix(in srgb, var(--ink) 30%, transparent); }
+.secret-groups summary { display: flex; justify-content: space-between; gap: 10px; padding: 9px 12px 6px; cursor: pointer; font-weight: 800; list-style-position: inside; }
+.secret-groups summary b { font: 600 13px var(--mono); color: var(--accent-text); }
+.secret-groups ol { padding: 0 12px 8px; }
+.secret-groups li { padding: 7px 0 5px; border-top: 1px solid color-mix(in srgb, var(--ink) 15%, transparent); font-size: 14px; line-height: 1.35; }
+.secret-groups strong { display: block; color: var(--ink-soft); }
+.secret-groups .got strong { color: var(--accent-text); }
+.log__note { font-size: 14px; color: var(--ink-soft); margin-bottom: 4px; }
+.menu__cheats li { grid-template-columns: 112px 1fr; align-items: start; }
+.menu__cheats button { padding: 4px 6px 2px; border: 1.500px solid var(--ink); text-align: left; }
+.menu__cheats button:hover { background: var(--ink); color: var(--paper); }
+.menu__cheats li span b { display: block; }
+@media (max-width: 760px) {
+  .chip--sound { display: none; }
+  .rh__radio { max-width: 120px; padding-inline: 8px; font-size: 10px; }
+  .rh__place { min-width: 0; }
+  .rh__coins { padding: 6px 8px 3px; }
+  .rh__coins b { font-size: 28px; }
+  .rh__coins b .coin { font-size: 18px; }
+  .rh__coins span { font-size: 10px; }
+  .rh--bottom { flex-wrap: wrap; }
+  .rh__tank { flex-basis: 100%; }
+  .rh__park { top: 190px; }
+  .stage:not(.stage--live) { aspect-ratio: auto; height: min(760px, 92svh); max-height: none; }
+  .bay__cars button svg { height: 28px; }
+  .stat { grid-template-columns: 70px 1fr 62px; }
+}
+@media (pointer: coarse) {
+  .pads button { height: 72px; }
+  .rh__line { bottom: 100px; }
+}

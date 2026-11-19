@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { audio } from '../audio'
 import { DEAD_AIR, STATIONS } from '../content'
 import { ChapterHead, Reveal } from '../hooks'
@@ -8,19 +8,16 @@ const MIN = 87.5
 const MAX = 102.5
 
 export function Radio() {
-  const [on, setOn] = useState(false)
-  const [freq, setFreq] = useState<number>(STATIONS[0].freq)
   const bars = useRef<HTMLCanvasElement>(null)
-  const setSound = useGame((s) => s.setSound)
+  const on = useGame((s) => s.radioOn)
+  const freq = useGame((s) => s.radioFreq)
+  const setRadio = useGame((s) => s.setRadio)
+  const tuneRadio = useGame((s) => s.tuneRadio)
   const sound = useGame((s) => s.sound)
   const find = useGame((s) => s.find)
 
   const station = STATIONS.find((s) => Math.abs(s.freq - freq) < 0.2)
   const dead = Math.abs(freq - DEAD_AIR) < 0.2
-
-  useEffect(() => {
-    audio.tune(freq)
-  }, [freq])
 
   useEffect(() => {
     if (!on || !sound) return
@@ -54,23 +51,19 @@ export function Radio() {
   }, [on])
 
   const power = () => {
-    const next = !on
-    if (next && !sound) setSound(true)
-    audio.setRadio(next)
-    audio.tune(freq)
     audio.click()
-    setOn(next)
+    setRadio(!on)
   }
   const tune = (f: number) => {
-    setFreq(f)
+    tuneRadio(f)
     audio.tick()
-    if (!on) power()
+    if (!on) setRadio(true)
   }
 
   return (
     <section id="radio" className="chapter radio">
       <ChapterHead km={485} title="Keep it on the dial">
-        Three stations still on the air, all made in your browser as you listen. It keeps playing while you drive.
+        Three stations still on the air, all made in your browser as you listen. It keeps playing while you drive, and the radio button in the game changes station.
       </ChapterHead>
       <Reveal className={`set ${on ? 'set--on' : ''}`}>
         <div className="set__face">

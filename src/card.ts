@@ -1,7 +1,9 @@
-import { CAR_SIDE, INK, MUSTARD, PAPER, RED, TEAL, rng } from './art'
-import { CARS, LEADS, PAINTS, rankFor, type CarId, type LeadId } from './content'
+import { INK, MUSTARD, PAPER, RED, TEAL, rng } from './art'
+import { LEADS, PAINTS, rankFor, type LeadId } from './content'
+import { LEVELS } from './levels'
+import { VEHICLES, sideView, type CarId } from './vehicles'
 
-export type CardData = { callsign: string; lead: LeadId; car: CarId; paint: string; km: number; valves: number; secrets: number; finished: boolean }
+export type CardData = { callsign: string; lead: LeadId; car: CarId; paint: string; km: number; coins: number; secrets: number; totalSecrets: number; levelsDone: number[] }
 
 const DISPLAY = '"Big Shoulders Display", Impact, sans-serif'
 const MONO = '"Overpass Mono", monospace'
@@ -49,9 +51,11 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   for (const [y, h, w] of [[376, 10, 3], [400, 18, 6], [438, 28, 10]]) g.fillRect(W / 2 - w / 2, top + y, w, h)
 
   // The player's car, in the paint they chose.
-  const side = CAR_SIDE[d.car]
-  g.translate(W / 2 - 380, top + 300)
-  g.scale(3.2, 3.2)
+  const side = sideView(d.car)
+  const [vx, vy, vw, vh] = side.viewBox.split(' ').map(Number)
+  const fit = Math.min(760 / vw, 250 / vh)
+  g.translate(W / 2 - (vw * fit) / 2 - vx * fit, top + 498 - (vh + vy) * fit)
+  g.scale(fit, fit)
   g.fillStyle = paint.hex
   g.strokeStyle = INK
   g.lineWidth = 3
@@ -59,8 +63,19 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   const body = new Path2D(side.body)
   g.fill(body)
   g.stroke(body)
+  if (side.paint) {
+    const extra = new Path2D(side.paint)
+    g.fill(extra)
+    g.stroke(extra)
+  }
   g.fillStyle = INK
   g.fill(new Path2D(side.glass))
+  g.fillStyle = paint.hex
+  const roof = new Path2D(side.roof)
+  g.fill(roof)
+  g.stroke(roof)
+  g.fillStyle = INK
+  if (side.trim) g.fill(new Path2D(side.trim))
   for (const [x, y] of side.wheels) {
     g.fillStyle = INK
     g.beginPath()
@@ -85,7 +100,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   g.textAlign = 'right'
   g.fillText('ROUTE 9 DRIVER’S CARD', W - 50, 76)
   g.fillStyle = accent
-  g.fillText(`NO. ${String(d.valves * 7 + d.km + 1000).padStart(5, '0')}`, W - 50, 116)
+  g.fillText(`NO. ${String(d.coins + d.km * 3 + 1000).padStart(5, '0')}`, W - 50, 116)
   g.textAlign = 'left'
 
   // Callsign.
@@ -103,10 +118,10 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
 
   // Stats.
   const rows: [string, string][] = [
-    ['RANK', rankFor(d.km, d.secrets, d.finished).toUpperCase()],
+    ['RANK', rankFor(d.levelsDone, d.km, d.secrets, d.totalSecrets).toUpperCase()],
     ['DRIVER', LEADS[d.lead].name.toUpperCase()],
-    ['CAR', CARS[d.car].name.toUpperCase()],
-    ['PAINT', paint.name.toUpperCase()],
+    ['VEHICLE', VEHICLES[d.car].name.toUpperCase()],
+    ['LEVELS', `${d.levelsDone.length} OF ${LEVELS.length} CLEARED`],
   ]
   rows.forEach(([k, v], i) => {
     const y = 930 + i * 58
@@ -120,7 +135,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
     g.textAlign = 'left'
   })
 
-  const tiles: [string, string][] = [['BEST KM', String(d.km)], ['VALVES', String(d.valves)], ['SECRETS', `${d.secrets}/6`]]
+  const tiles: [string, string][] = [['BEST KM', String(d.km)], ['COINS', d.coins.toLocaleString()], ['SECRETS', `${d.secrets}/${d.totalSecrets}`]]
   tiles.forEach(([k, v], i) => {
     const x = 50 + i * 250
     g.fillStyle = INK
@@ -131,7 +146,7 @@ export async function drawCard(canvas: HTMLCanvasElement, d: CardData) {
   })
 
   // Ticket barcode.
-  const b = rng(d.km * 31 + d.valves + 5)
+  const b = rng(d.km * 31 + d.coins + 5)
   let x = 806
   g.fillStyle = INK
   while (x < W - 54) {

@@ -1,7 +1,7 @@
 export type LeadId = 'ines' | 'dov'
-export type CarId = 'sandpiper' | 'merle' | 'ostler'
+export type { CarId } from './vehicles'
 export type StripeId = 'none' | 'rally' | 'twin'
-export type SecretId = 'lamp' | 'deadair' | 'ghost' | 'island' | 'cq' | 'ferry'
+export type SecretId = string
 
 export const CHAPTERS = [
   { id: 'cover', km: 0, label: 'Cold Start' },
@@ -33,7 +33,7 @@ export const LEADS = {
     bio: 'Three-time Orrin Rally co-driver who can read a road from its pace notes alone. Her house is under eleven feet of water. She has stopped mentioning it.',
     quote: 'Left over crest, don’t lift. I said don’t lift.',
     perk: 'Pace Notes',
-    perkText: 'Pulls in radio valves from twice as far away.',
+    perkText: 'Boosting burns a quarter less fuel.',
   },
   dov: {
     id: 'dov' as const,
@@ -54,39 +54,6 @@ export const CREW = [
   { id: 'reyne', name: 'Sgt. Hollis Reyne', role: 'Causeway Authority', line: 'Follows every order to the letter, and is starting to read the letters more closely.' },
   { id: 'toll', name: 'The Tollkeeper', role: 'Nobody is sure', line: 'Seen at a booth on the Flats that was demolished in 1961. Still gives correct change.' },
 ]
-
-export const REGIONS = [
-  {
-    id: 'sable', name: 'Port Sable', from: 0, to: 180, hour: '21:00', weather: 'Rain, low cloud',
-    blurb: 'A harbour city going under one street at a time. The cranes still work. Nobody is sure who for.',
-    watch: 'Container trucks running the evacuation lanes',
-    banter: { ines: 'Rain on the causeway. Keep it smooth and stay off the paint.', dov: 'Wipers are decorative. Good luck.' },
-  },
-  {
-    id: 'flats', name: 'The Glass Flats', from: 180, to: 385, hour: '23:15', weather: 'Clear, strange light',
-    blurb: 'A hundred and fifty kilometres of dry sea bed, white as paper. The heat stays long after dark and the road plays tricks.',
-    watch: 'Mirages, and one toll booth that should not be there',
-    banter: { ines: 'Flat for 150 kilometres. Trust the notes, not your eyes.', dov: 'Salt in the bearings. I can hear it.' },
-  },
-  {
-    id: 'pines', name: 'Ember Pines', from: 385, to: 470, hour: '02:50', weather: 'Smoke, falling embers',
-    blurb: 'The forest has been burning for nine days. The road is the only gap in it and the Authority knows that.',
-    watch: 'Roadblocks at every narrow',
-    banter: { ines: 'Smoke ahead. Roadblocks after it. Pick a gap and commit.', dov: 'If the paint blisters, that’s just character.' },
-  },
-  {
-    id: 'cape', name: 'Cape Lantern', from: 470, to: 580, hour: '05:20', weather: 'Sea fog, stars above it',
-    blurb: 'The end of Route 9. One lighthouse, one ramp, one ferry with its engines already running.',
-    watch: 'No street lights past the ridge',
-    banter: { ines: 'I can see the lamp. Don’t you dare slow down.', dov: 'Nineteen years I worked that ramp. Hold on.' },
-  },
-]
-
-export const CARS = {
-  sandpiper: { id: 'sandpiper' as const, name: 'Harlow Sandpiper', kind: 'Rally wagon', year: 1974, top: 212, grip: 1, tank: 1.12, tough: 0.58, note: 'Carries the transmitter, the spares and most of the argument.' },
-  merle: { id: 'merle' as const, name: 'Corvane Merle', kind: 'Grand tourer', year: 1971, top: 250, grip: 0.86, tank: 0.9, tough: 0.42, note: 'Very fast. Very thirsty. Very sure of itself.' },
-  ostler: { id: 'ostler' as const, name: 'Ostler Twelve', kind: 'Ferry-yard pickup', year: 1968, top: 183, grip: 0.92, tank: 1.36, tough: 0.74, note: 'Has already hit everything you are about to hit.' },
-}
 
 export const PAINTS = [
   { id: 'signal', name: 'Signal Red', hex: '#d63a25' },
@@ -111,27 +78,33 @@ export const STATIONS = [
 ]
 export const DEAD_AIR = 87.9
 
-export const SECRETS: { id: SecretId; name: string; hint: string; found: string }[] = [
+/** Secrets hidden in the page itself. Every level adds six more of its own, found on the road. */
+export const PAGE_SECRETS: { id: SecretId; name: string; hint: string; found: string }[] = [
   { id: 'lamp', name: 'The Keeper’s Lamp', hint: 'The lamp on the cover answers three knocks.', found: 'Someone at Cape Lantern knocked back.' },
   { id: 'deadair', name: 'Dead Air', hint: 'Someone is reading numbers just below the first station.', found: 'The numbers repeat every eleven minutes.' },
-  { id: 'ghost', name: 'The Ghost Toll', hint: 'Keep far right on the Flats around km 290.', found: 'You paid. You do not remember paying.' },
   { id: 'island', name: 'Kilometre 650', hint: 'The atlas has an island nobody named.', found: 'Route 9 was never supposed to end at the Cape.' },
-  { id: 'cq', name: 'Calling All Stations', hint: 'Two letters, twice. Every radio operator knows them.', found: 'Somebody out there answered.' },
-  { id: 'ferry', name: 'The Last Ferry', hint: 'Reach Cape Lantern before your three lives run out.', found: 'The ramp came up behind you.' },
+  { id: 'cq', name: 'Calling All Stations', hint: 'Enter the cheat code CQCQ.', found: 'Somebody out there answered.' },
 ]
 
-export const CHEATS = [
-  { code: 'CQCQ', name: 'Calling all stations', hint: 'Two letters, twice.' },
-  { code: 'LOWTIDE', name: 'Bottomless tank', hint: 'When the water goes out.' },
-  { code: 'NIGHTSHIFT', name: 'Night print', hint: 'Who works while you sleep?' },
-  { code: 'BLUEPRINT', name: 'Draughtsman’s view', hint: 'What the car looked like first.' },
-  { code: 'MOONMETAL', name: 'Secret paint', hint: 'The seventh colour has a name.' },
-  { code: 'HONKHONK', name: 'Everything honks', hint: 'Say it like the horn does.' },
+export type Cheat = { code: string; name: string; effect: string; once?: boolean }
+export const CHEATS: Cheat[] = [
+  { code: 'LOWTIDE', name: 'Bottomless tank', effect: 'Fuel never runs out.' },
+  { code: 'IRONHIDE', name: 'Iron hide', effect: 'Crashes slow you down but never cost a life.' },
+  { code: 'PAYDAY', name: 'Payday', effect: 'Adds 1,000 coins to your wallet.', once: true },
+  { code: 'OPENROAD', name: 'Open road', effect: 'Unlocks every level.', once: true },
+  { code: 'BLUEPRINT', name: 'Draughtsman’s view', effect: 'Shows the car and the scenery as wireframes.' },
+  { code: 'NIGHTSHIFT', name: 'Night print', effect: 'Turns the whole page to night colours.' },
+  { code: 'MOONMETAL', name: 'Secret paint', effect: 'Unlocks the Moonmetal paint in the garage.' },
+  { code: 'HONKHONK', name: 'Everything honks', effect: 'Every click and tap sounds the horn.' },
+  { code: 'CQCQ', name: 'Calling all stations', effect: 'Finds a page secret.', once: true },
 ]
 
-export function rankFor(km: number, secrets: number, finished: boolean) {
-  if (finished && secrets === 6) return 'Saltline Legend'
-  if (finished) return 'Last Ferry Runner'
+const LEVEL_RANKS = ['Last Ferry Runner', 'Frostline Driver', 'Delta Navigator', 'Canyon Champion']
+
+export function rankFor(levelsDone: number[], km: number, secrets: number, totalSecrets: number) {
+  if (levelsDone.length === LEVEL_RANKS.length && secrets === totalSecrets) return 'Saltline Legend'
+  const top = Math.max(-1, ...levelsDone)
+  if (top >= 0) return LEVEL_RANKS[top]
   if (km >= 385) return 'Fire Line Driver'
   if (km >= 180) return 'Flats Courier'
   if (km > 0) return 'Causeway Rookie'

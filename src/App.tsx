@@ -33,6 +33,20 @@ export function App() {
   }, [booted, driving])
 
   useEffect(() => {
+    // The radio lives in the store so the dial on the page and the button in the game stay in step.
+    audio.tune(useGame.getState().radioFreq)
+    const stop = useGame.subscribe((s, prev) => {
+      if (s.radioFreq !== prev.radioFreq) audio.tune(s.radioFreq)
+      if (s.radioOn !== prev.radioOn) {
+        audio.setRadio(s.radioOn)
+        audio.tune(s.radioFreq)
+      }
+    })
+    if (import.meta.env.DEV) Object.assign(window, { __audio: audio, __game: useGame })
+    return stop
+  }, [])
+
+  useEffect(() => {
     let typed = ''
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement

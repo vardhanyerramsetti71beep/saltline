@@ -6,12 +6,15 @@ A playable teaser for a road game that does not exist. Drive 580 km across the i
 
 - A scroll-driven story told hour by hour through one night
 - Two drivers to switch between, each with their own colours, lines and perk
-- An interactive atlas with four regions
-- A 3D road trip with three lives, fuel, roadblocks, traffic and pickups
-- A garage with three cars, seven paints and stripe options
-- A working radio with three generative stations and a hidden frequency
-- Six secrets, six cheat codes and a downloadable driver's card
-- Keyboard and touch controls, saved progress and reduced-motion support
+- An interactive atlas of Route 9
+- A 3D road game with four levels, each on a new map: Route 9, Frostline Pass, Monsoon Delta and Red Canyon Run
+- Three lives per run, fuel that burns three times faster on boost, traffic, roadblocks and coins
+- A pit stop at the end of every level where you park in a marked bay to unlock the next level
+- Six secrets on every level, plus four hidden in the page
+- A garage shop: spend coins on nine cars and trucks and tune speed, fuel range and handling
+- A working radio with three generative stations, playable in the game with the R key or the radio button
+- Nine cheat codes, listed in the glovebox and usable from the pause menu during a run
+- A downloadable driver's card, keyboard and touch controls, saved progress and reduced-motion support
 
 ## Run it
 

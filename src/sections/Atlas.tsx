@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { audio } from '../audio'
 import { Poster } from '../art'
-import { REGIONS } from '../content'
+import { ROUTE9 as REGIONS } from '../levels'
 import { ChapterHead, Reveal, go } from '../hooks'
 import { useGame } from '../store'
 

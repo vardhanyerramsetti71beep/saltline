@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../audio'
 import { CarSide } from '../art'
-import { CARS, PAINTS, STRIPES, type CarId } from '../content'
+import { PAINTS, STRIPES } from '../content'
 import { ChapterHead, useNear } from '../hooks'
-import { paintUnlocked, useGame } from '../store'
+import { paintUnlocked, upgradesOf, useGame } from '../store'
 import type { GarageView } from '../three/garage'
+import { MAX_UPGRADE, UPGRADES, VEHICLE_ORDER, VEHICLES, statsFor, upgradeCost, type CarId } from '../vehicles'
+import { Coin } from './Drive'
 
-const Bar = ({ label, value }: { label: string; value: number }) => (
-  <div className="stat"><span>{label}</span><i><b style={{ width: `${Math.min(100, value)}%` }} /></i></div>
+const Bar = ({ label, value, text }: { label: string; value: number; text: string }) => (
+  <div className="stat"><span>{label}</span><i><b style={{ width: `${Math.min(100, value)}%` }} /></i><em>{text}</em></div>
 )
 
 export function Garage() {
@@ -16,14 +18,26 @@ export function Garage() {
   const view = useRef<GarageView | null>(null)
   const [ready, setReady] = useState(false)
   const car = useGame((s) => s.car)
+  const [viewing, setViewing] = useState<CarId>(car)
   const paint = useGame((s) => s.paint)
   const stripe = useGame((s) => s.stripe)
+  const coins = useGame((s) => s.coins)
+  const owned = useGame((s) => s.owned)
+  const upgrades = useGame((s) => s.upgrades)
   const setLook = useGame((s) => s.setLook)
+  const chooseCar = useGame((s) => s.chooseCar)
+  const buyCar = useGame((s) => s.buyCar)
+  const buyUpgrade = useGame((s) => s.buyUpgrade)
   const secrets = useGame((s) => s.secrets)
   const cheats = useGame((s) => s.cheats)
   const unlocked = paintUnlocked({ secrets, cheats })
   const hex = PAINTS.find((p) => p.id === paint)?.hex ?? PAINTS[0].hex
-  const spec = CARS[car]
+  const v = VEHICLES[viewing]
+  const own = owned.includes(viewing)
+  const up = upgradesOf({ upgrades }, viewing)
+  const stats = statsFor(viewing, up)
+
+  useEffect(() => setViewing(car), [car])
 
   useEffect(() => {
     if (!seen || view.current || !canvas.current) return
@@ -34,7 +48,7 @@ export function Garage() {
         view.current = new GarageView(canvas.current)
         setReady(true)
       } catch {
-        /* The controls and the flat car drawing still work without WebGL. */
+        /* The controls and the flat car drawings still work without WebGL. */
       }
     })
     return () => {
@@ -44,37 +58,78 @@ export function Garage() {
 
   useEffect(() => () => view.current?.dispose(), [])
   useEffect(() => view.current?.setVisible(near), [near, ready])
-  useEffect(() => view.current?.setLook({ car, paint: hex, stripe }), [car, hex, stripe, ready])
+  useEffect(() => view.current?.setLook({ car: viewing, paint: hex, stripe }), [viewing, hex, stripe, ready])
   useEffect(() => view.current?.setBlueprint(cheats.includes('BLUEPRINT')), [cheats, ready])
+
+  const pick = (id: CarId) => {
+    audio.click()
+    setViewing(id)
+    if (owned.includes(id)) chooseCar(id)
+  }
+  const buy = () => {
+    if (!buyCar(viewing)) audio.fail()
+  }
 
   return (
     <section id="garage" className="chapter garage">
       <ChapterHead km={385} title="Dov’s garage">
-        Three cars, seven paints. Whatever leaves this bay is what you drive.
+        Spend the coins you collect on the road. Buy new cars and trucks, then tune their speed, fuel tank and handling.
       </ChapterHead>
       <div className="bay">
         <div className="bay__view" ref={ref}>
-          <canvas ref={canvas} aria-label={`${spec.name} on a turntable. Drag to rotate.`} />
+          <canvas ref={canvas} aria-label={`${v.name} on a turntable. Drag to rotate.`} />
           <span className="bay__hint">Drag to turn</span>
+          <span className="bay__wallet"><Coin /> {coins.toLocaleString()} coins</span>
         </div>
         <div className="bay__tools">
-          <div className="bay__cars" role="radiogroup" aria-label="Car">
-            {(Object.keys(CARS) as CarId[]).map((id) => (
-              <button key={id} role="radio" aria-checked={id === car} className={id === car ? 'on' : ''} onClick={() => { audio.click(); setLook({ car: id }) }}>
-                <CarSide car={id} color={id === car ? hex : 'transparent'} />
-                <span>{CARS[id].name.split(' ').slice(1).join(' ')}</span>
-              </button>
-            ))}
+          <div className="bay__cars" role="radiogroup" aria-label="Vehicles">
+            {VEHICLE_ORDER.map((id) => {
+              const has = owned.includes(id)
+              return (
+                <button key={id} role="radio" aria-checked={id === viewing} className={`${id === viewing ? 'on' : ''} ${id === car ? 'active' : ''}`} onClick={() => pick(id)}>
+                  <CarSide car={id} color={has ? (id === car ? hex : '#d9cdb4') : 'transparent'} />
+                  <span>{VEHICLES[id].name.split(' ').slice(1).join(' ')}</span>
+                  <small>{id === car ? 'Driving' : has ? 'Owned' : <><Coin /> {VEHICLES[id].price.toLocaleString()}</>}</small>
+                </button>
+              )
+            })}
           </div>
-          <h3>{spec.name}</h3>
-          <p className="bay__kind">{spec.year} · {spec.kind} · {spec.top} kmph</p>
-          <p>{spec.note}</p>
+          <h3>{v.name}</h3>
+          <p className="bay__kind">{v.kind} · {v.year} · {v.style} · {stats.top} kmph</p>
+          <p>{v.note}{v.offroad ? ' No slowdown on the shoulder.' : ''}</p>
           <div className="stats">
-            <Bar label="Top speed" value={(spec.top / 256) * 100} />
-            <Bar label="Grip" value={spec.grip * 100} />
-            <Bar label="Tank" value={(spec.tank / 1.4) * 100} />
-            <Bar label="Toughness" value={(spec.tough / 0.8) * 100} />
+            <Bar label="Top speed" value={(stats.top / 360) * 100} text={`${stats.top} kmph`} />
+            <Bar label="Grip" value={(stats.grip / 1.5) * 100} text={stats.grip.toFixed(2)} />
+            <Bar label="Fuel range" value={(stats.tank / 2.8) * 100} text={`×${stats.tank.toFixed(2)}`} />
+            <Bar label="Toughness" value={stats.tough * 100} text={`${Math.round(stats.tough * 100)}%`} />
           </div>
+          {!own && (
+            <div className="bay__buy">
+              <button className="btn btn--solid" disabled={coins < v.price} onClick={buy}>Buy for {v.price.toLocaleString()} coins</button>
+              <p>{coins >= v.price ? 'You can afford it.' : `You need ${(v.price - coins).toLocaleString()} more coins.`}</p>
+            </div>
+          )}
+          {own && (
+            <fieldset>
+              <legend>Upgrades for the {v.name.split(' ').slice(1).join(' ')}</legend>
+              <div className="upgrades">
+                {UPGRADES.map((u) => {
+                  const lvl = up[u.id]
+                  const cost = upgradeCost(u.id, lvl)
+                  const maxed = lvl >= MAX_UPGRADE
+                  return (
+                    <div className="upgrade" key={u.id}>
+                      <div><b>{u.name}</b><span>{u.effect}</span></div>
+                      <i aria-label={`Level ${lvl} of ${MAX_UPGRADE}`}>{Array.from({ length: MAX_UPGRADE }, (_, i) => <s key={i} className={i < lvl ? 'on' : ''} />)}</i>
+                      <button className="btn" disabled={maxed || coins < cost} onClick={() => (buyUpgrade(viewing, u.id) ? null : audio.fail())}>
+                        {maxed ? 'Maxed' : <><Coin /> {cost}</>}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </fieldset>
+          )}
           <fieldset>
             <legend>Paint <b>{PAINTS.find((p) => p.id === paint)?.name}</b></legend>
             <div className="swatches">
@@ -82,7 +137,7 @@ export function Garage() {
                 const locked = p.secret && !unlocked
                 return (
                   <button key={p.id} className={p.id === paint ? 'on' : ''} disabled={locked} style={{ background: locked ? undefined : p.hex }}
-                    aria-label={locked ? 'Locked paint' : p.name} aria-pressed={p.id === paint} title={locked ? 'Find all six secrets' : p.name}
+                    aria-label={locked ? 'Locked paint' : p.name} aria-pressed={p.id === paint} title={locked ? 'Find all four page secrets' : p.name}
                     onClick={() => { audio.spray(); setLook({ paint: p.id }) }}>{locked ? '?' : ''}</button>
                 )
               })}

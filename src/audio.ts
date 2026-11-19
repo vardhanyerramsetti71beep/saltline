@@ -273,13 +273,15 @@ class AudioEngine {
   }
 
   setRadio(on: boolean) {
-    this.radioOn = on
     const ctx = this.ensure()
     if (!ctx) return
     void ctx.resume()
     this.buildRadio()
     this.radioBus?.gain.setTargetAtTime(on ? 0.75 : 0, ctx.currentTime, 0.08)
+    if (on && this.radioOn && this.timer) return
+    this.radioOn = on
     window.clearInterval(this.timer)
+    this.timer = 0
     if (!on) return
     this.mix()
     this.nextStep = ctx.currentTime + 0.05

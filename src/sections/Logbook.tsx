@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../audio'
 import { cardBlob, drawCard } from '../card'
-import { SECRETS } from '../content'
 import { ChapterHead, Reveal, useNear } from '../hooks'
-import { useGame } from '../store'
+import { TOTAL_SECRETS, useGame } from '../store'
+import { SecretGroups } from '../ui/Secrets'
 
 export function Logbook() {
   const { ref, seen } = useNear<HTMLDivElement>('300px')
@@ -14,9 +14,10 @@ export function Logbook() {
   const car = useGame((s) => s.car)
   const paint = useGame((s) => s.paint)
   const km = useGame((s) => s.bestKm)
-  const valves = useGame((s) => s.bestValves)
+  const coins = useGame((s) => s.coins)
   const secrets = useGame((s) => s.secrets)
-  const finished = useGame((s) => s.finished)
+  const levelsDone = useGame((s) => s.levelsDone)
+  const level = useGame((s) => s.level)
   const toast = useGame((s) => s.toast)
   const [canShare, setCanShare] = useState(false)
 
@@ -26,8 +27,8 @@ export function Logbook() {
 
   useEffect(() => {
     if (!seen || !canvas.current) return
-    void drawCard(canvas.current, { callsign, lead, car, paint, km, valves, secrets: secrets.length, finished })
-  }, [seen, callsign, lead, car, paint, km, valves, secrets, finished])
+    void drawCard(canvas.current, { callsign, lead, car, paint, km, coins, secrets: secrets.length, totalSecrets: TOTAL_SECRETS, levelsDone })
+  }, [seen, callsign, lead, car, paint, km, coins, secrets, levelsDone])
 
   const save = async () => {
     if (!canvas.current) return
@@ -60,7 +61,7 @@ export function Logbook() {
   return (
     <section id="logbook" className="chapter logbook">
       <ChapterHead km={547} title="Your driver’s card">
-        It updates with your best run, your car and every secret you find.
+        It updates with your best run, your vehicle, your coins, the levels you clear and every secret you find.
       </ChapterHead>
       <div className="log" ref={ref}>
         <Reveal className="log__card"><canvas ref={canvas} width={1080} height={1350} role="img" aria-label={`Driver’s card for ${callsign}`} /></Reveal>
@@ -71,18 +72,9 @@ export function Logbook() {
             <button className="btn btn--solid" onClick={save}>Download card</button>
             {canShare && <button className="btn" onClick={share}>Share</button>}
           </div>
-          <h3>Six secrets <b>{secrets.length}/6</b></h3>
-          <ol className="log__secrets">
-            {SECRETS.map((s, i) => {
-              const got = secrets.includes(s.id)
-              return (
-                <li key={s.id} className={got ? 'got' : ''}>
-                  <span>{i + 1}</span>
-                  <div><strong>{got ? s.name : 'Not found yet'}</strong><p>{got ? s.found : s.hint}</p></div>
-                </li>
-              )
-            })}
-          </ol>
+          <h3>Secrets <b>{secrets.length}/{TOTAL_SECRETS}</b></h3>
+          <p className="log__note">Four on this page, and six on every level of the drive.</p>
+          <SecretGroups openLevel={level} />
         </Reveal>
       </div>
     </section>

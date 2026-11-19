@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { audio } from '../audio'
-import { CHAPTERS, CHEATS, LEADS, SECRETS } from '../content'
+import { CHAPTERS, CHEATS, LEADS } from '../content'
+import { Coin } from '../sections/Drive'
+import { SecretGroups } from './Secrets'
 import { go } from '../hooks'
-import { useGame } from '../store'
+import { TOTAL_SECRETS, useGame } from '../store'
 
 export function Hud() {
   const lead = useGame((s) => s.lead)
@@ -10,6 +12,7 @@ export function Hud() {
   const sound = useGame((s) => s.sound)
   const setSound = useGame((s) => s.setSound)
   const secrets = useGame((s) => s.secrets)
+  const coins = useGame((s) => s.coins)
   const setMenu = useGame((s) => s.setMenu)
   const driving = useGame((s) => s.driving)
   const booted = useGame((s) => s.booted)
@@ -74,11 +77,14 @@ export function Hud() {
         <button className="chip chip--lead" onClick={swapLead} aria-label={`Switch to ${other.name}`} title="Shift + Tab">
           <i aria-hidden="true" /> {LEADS[lead].name.split(' ')[0]}
         </button>
-        <button className="chip" onClick={() => setSound(!sound)} aria-pressed={sound} aria-label={sound ? 'Turn sound off' : 'Turn sound on'}>
+        <button className="chip chip--coins" onClick={() => go('garage')} aria-label={`${coins} coins. Open the garage`}>
+          <Coin /> {coins.toLocaleString()}
+        </button>
+        <button className="chip chip--sound" onClick={() => setSound(!sound)} aria-pressed={sound} aria-label={sound ? 'Turn sound off' : 'Turn sound on'}>
           {sound ? 'Sound on' : 'Sound off'}
         </button>
-        <button className="chip chip--menu" onClick={() => { audio.click(); setMenu(true) }} aria-label={`Open glovebox. ${secrets.length} of 6 secrets found`}>
-          Glovebox <b>{secrets.length}/6</b>
+        <button className="chip chip--menu" onClick={() => { audio.click(); setMenu(true) }} aria-label={`Open glovebox. ${secrets.length} of ${TOTAL_SECRETS} secrets found`}>
+          Glovebox <b>{secrets.length}/{TOTAL_SECRETS}</b>
         </button>
       </div>
       <div className="dash" aria-hidden="true">
@@ -108,6 +114,7 @@ export function Menu() {
   const secrets = useGame((s) => s.secrets)
   const cheats = useGame((s) => s.cheats)
   const cheat = useGame((s) => s.cheat)
+  const level = useGame((s) => s.level)
   const reset = useGame((s) => s.reset)
   const [code, setCode] = useState('')
   const [wrong, setWrong] = useState(false)
@@ -144,20 +151,15 @@ export function Menu() {
             </ol>
           </section>
           <section>
-            <h3>Secrets <b>{secrets.length}/6</b></h3>
-            <ul className="menu__secrets">
-              {SECRETS.map((s) => {
-                const got = secrets.includes(s.id)
-                return <li key={s.id} className={got ? 'got' : ''}><strong>{got ? s.name : 'Unfound'}</strong><span>{got ? s.found : s.hint}</span></li>
-              })}
-            </ul>
+            <h3>Secrets <b>{secrets.length}/{TOTAL_SECRETS}</b></h3>
+            <SecretGroups openLevel={level} />
           </section>
           <section>
             <h3>Cheat codes</h3>
             <form onSubmit={submit} className="menu__code">
-              <label htmlFor="code">Type a code here, or anywhere on the page</label>
+              <label htmlFor="code">Type a code here, anywhere on the page, or in the pause menu during a run</label>
               <div>
-                <input id="code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setWrong(false) }} autoComplete="off" spellCheck={false} maxLength={12} placeholder="CODE" />
+                <input id="code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setWrong(false) }} autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={12} placeholder="CODE" />
                 <button className="btn btn--solid">Enter</button>
               </div>
               <p role="status">{wrong ? 'Nothing happens. Try another.' : ' '}</p>
@@ -165,7 +167,12 @@ export function Menu() {
             <ul className="menu__cheats">
               {CHEATS.map((c) => {
                 const on = cheats.includes(c.code)
-                return <li key={c.code} className={on ? 'got' : ''}><code>{on ? c.code : `${c.code[0]}${'·'.repeat(c.code.length - 1)}`}</code><span>{on ? c.name : c.hint}</span></li>
+                return (
+                  <li key={c.code} className={on ? 'got' : ''}>
+                    <button type="button" onClick={() => cheat(c.code)} aria-label={`Use cheat ${c.code}: ${c.effect}`}><code>{c.code}</code></button>
+                    <span><b>{c.name}{c.once ? '' : on ? ' · on' : ' · off'}</b> {c.effect}</span>
+                  </li>
+                )
               })}
             </ul>
           </section>
@@ -173,10 +180,11 @@ export function Menu() {
             <h3>Controls</h3>
             <dl className="menu__keys">
               <div><dt>← → or A D</dt><dd>Steer</dd></div>
-              <div><dt>↑ or W</dt><dd>Boost, uses more fuel</dd></div>
-              <div><dt>↓ or S</dt><dd>Brake</dd></div>
-              <div><dt>Space</dt><dd>Horn</dd></div>
-              <div><dt>P or Esc</dt><dd>Pause the run</dd></div>
+              <div><dt>↑ or W</dt><dd>Boost, burns fuel three times faster</dd></div>
+              <div><dt>↓ or S</dt><dd>Brake, and reverse at the pit stop</dd></div>
+              <div><dt>Space</dt><dd>Horn, try it at each level's landmark</dd></div>
+              <div><dt>Esc</dt><dd>Pause the run</dd></div>
+              <div><dt>R</dt><dd>Change radio station</dd></div>
               <div><dt>Shift + Tab</dt><dd>Switch driver</dd></div>
             </dl>
             <button className="btn btn--quiet" onClick={() => (sure ? (reset(), setSure(false)) : setSure(true))}>{sure ? 'Tap again to erase progress' : 'Erase my progress'}</button>
