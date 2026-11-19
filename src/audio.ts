@@ -4,6 +4,8 @@ type Voice = { type?: OscillatorType; freq: number; t: number; dur: number; vol:
 
 const midi = (n: number) => 440 * Math.pow(2, (n - 69) / 12)
 
+type Station = { freq: number; gain: GainNode; echo: GainNode; bpm: number; next: number; step: number; play: (i: number, t: number, s: Station) => void }
+
 class AudioEngine {
   private ctx?: AudioContext
   private master?: GainNode
@@ -15,10 +17,8 @@ class AudioEngine {
   private engineFilter?: BiquadFilterNode
   private radioBus?: GainNode
   private staticGain?: GainNode
-  private stations: { freq: number; gain: GainNode; echo: GainNode }[] = []
+  private stations: Station[] = []
   private timer = 0
-  private step = 0
-  private nextStep = 0
   private freq: number = STATIONS[0].freq
   analyser?: AnalyserNode
   enabled = false
@@ -30,6 +30,9 @@ class AudioEngine {
     if (!Ctor) return undefined
     const ctx = new Ctor()
     this.ctx = ctx
+    // iPhones mute web audio on the silent switch unless the page asks for playback.
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession
+    if (session) session.type = 'playback'
     this.master = ctx.createGain()
     this.master.gain.value = this.enabled ? 0.9 : 0
     const limiter = ctx.createDynamicsCompressor()
@@ -198,7 +201,7 @@ class AudioEngine {
     this.engineFilter.connect(this.engineGain).connect(this.master)
     this.engineOsc.start()
     this.engineSub.start()
-    this.engineGain.gain.setTargetAtTime(this.radioOn ? 0.035 : 0.075, ctx.currentTime, 0.2)
+    this.engineGain.gain.setTargetAtTime(this.radioOn ? 0.028 : 0.075, ctx.currentTime, 0.2)
   }
   engineSet(ratio: number) {
     const ctx = this.ctx
@@ -222,10 +225,19 @@ class AudioEngine {
     if (!ctx || !this.master || this.radioBus || !this.noise) return
     this.radioBus = ctx.createGain()
     this.radioBus.gain.value = 0
+    // A broadcast-style compressor keeps every station loud and even, like a real radio.
+    const glue = ctx.createDynamicsCompressor()
+    glue.threshold.value = -24
+    glue.knee.value = 10
+    glue.ratio.value = 4
+    glue.attack.value = 0.004
+    glue.release.value = 0.2
+    const makeup = ctx.createGain()
+    makeup.gain.value = 1.8
     this.analyser = ctx.createAnalyser()
     this.analyser.fftSize = 128
     this.analyser.smoothingTimeConstant = 0.72
-    this.radioBus.connect(this.analyser)
+    this.radioBus.connect(glue).connect(makeup).connect(this.analyser)
     this.analyser.connect(this.master)
     const src = ctx.createBufferSource()
     src.buffer = this.noise
@@ -238,21 +250,33 @@ class AudioEngine {
     this.staticGain.gain.value = 0
     src.connect(band).connect(this.staticGain).connect(this.radioBus)
     src.start()
-    const list = [...STATIONS.map((s) => s.freq), DEAD_AIR]
-    this.stations = list.map((freq) => {
+    const defs: [number, number, Station['play']][] = [
+      [STATIONS[0].freq, 84, this.dub],
+      [STATIONS[1].freq, 66, this.tide],
+      [STATIONS[2].freq, 118, this.motor],
+      [DEAD_AIR, 96, this.numbers],
+    ]
+    this.stations = defs.map(([freq, bpm, play]) => {
       const gain = ctx.createGain()
       gain.gain.value = 0
       gain.connect(this.radioBus!)
-      const delay = ctx.createDelay(1.5)
-      delay.delayTime.value = 0.39
-      const feedback = ctx.createGain()
-      feedback.gain.value = 0.46
       const echo = ctx.createGain()
+      const delay = ctx.createDelay(2)
+      delay.delayTime.value = (60 / bpm) * 0.75
+      const feedback = ctx.createGain()
+      feedback.gain.value = 0.38
+      const dull = ctx.createBiquadFilter()
+      dull.type = 'lowpass'
+      dull.frequency.value = 2600
       echo.connect(delay)
-      delay.connect(feedback).connect(delay)
-      delay.connect(gain)
-      return { freq, gain, echo }
+      delay.connect(dull).connect(feedback).connect(delay)
+      dull.connect(gain)
+      return { freq, gain, echo, bpm, next: 0, step: 0, play: play.bind(this) }
     })
+  }
+
+  private lock(s: Station) {
+    return Math.max(0, 1 - Math.abs(this.freq - s.freq) / 0.32)
   }
 
   private mix() {
@@ -260,11 +284,11 @@ class AudioEngine {
     if (!ctx || !this.staticGain) return
     let strongest = 0
     for (const s of this.stations) {
-      const lock = Math.max(0, 1 - Math.abs(this.freq - s.freq) / 0.32)
+      const lock = this.lock(s)
       strongest = Math.max(strongest, lock)
       s.gain.gain.setTargetAtTime(lock * lock, ctx.currentTime, 0.03)
     }
-    this.staticGain.gain.setTargetAtTime(0.13 * (1 - strongest), ctx.currentTime, 0.03)
+    this.staticGain.gain.setTargetAtTime(0.16 * (1 - strongest), ctx.currentTime, 0.03)
   }
 
   tune(freq: number) {
@@ -277,73 +301,176 @@ class AudioEngine {
     if (!ctx) return
     void ctx.resume()
     this.buildRadio()
-    this.radioBus?.gain.setTargetAtTime(on ? 0.75 : 0, ctx.currentTime, 0.08)
+    this.radioBus?.gain.setTargetAtTime(on ? 0.9 : 0, ctx.currentTime, 0.08)
     if (on && this.radioOn && this.timer) return
     this.radioOn = on
     window.clearInterval(this.timer)
     this.timer = 0
     if (!on) return
     this.mix()
-    this.nextStep = ctx.currentTime + 0.05
-    this.timer = window.setInterval(() => this.schedule(), 30)
+    for (const s of this.stations) s.next = ctx.currentTime + 0.05
+    this.timer = window.setInterval(() => this.schedule(), 25)
   }
 
   private schedule() {
     const ctx = this.ctx
     if (!ctx) return
-    while (this.nextStep < ctx.currentTime + 0.14) {
-      const t = this.nextStep
-      const i = this.step++
-      const audible = (index: number) => Math.abs(this.freq - this.stations[index].freq) < 0.34
-      if (audible(0)) this.dub(i, t, this.stations[0])
-      if (audible(1)) this.tide(i, t, this.stations[1])
-      if (audible(2)) this.motor(i, t, this.stations[2])
-      if (audible(3)) this.numbers(i, t, this.stations[3])
-      this.nextStep += 60 / 96 / 4
-    }
-  }
-
-  private dub(i: number, t: number, s: { gain: GainNode; echo: GainNode }) {
-    const s16 = i % 32
-    const bass: Record<number, number> = { 0: 33, 3: 33, 6: 36, 8: 31, 14: 28, 16: 33, 19: 33, 22: 40, 24: 38, 30: 36 }
-    if (bass[s16]) this.tone({ type: 'sine', freq: midi(bass[s16]), t, dur: 0.3, vol: 0.42, cutoff: 500 }, s.gain)
-    if (s16 % 8 === 4) {
-      for (const n of s16 < 16 ? [57, 60, 64] : [55, 59, 62]) {
-        this.tone({ type: 'sawtooth', freq: midi(n), t, dur: 0.12, vol: 0.05, cutoff: 1500 }, s.gain)
-        this.tone({ type: 'sawtooth', freq: midi(n), t, dur: 0.12, vol: 0.04, cutoff: 1500 }, s.echo)
+    const ahead = ctx.currentTime + 0.16
+    for (const s of this.stations) {
+      if (this.lock(s) <= 0) {
+        // Off-air stations keep time without playing, so tuning in lands on the beat.
+        while (s.next < ctx.currentTime) {
+          s.next += 60 / s.bpm / 4
+          s.step++
+        }
+        continue
+      }
+      while (s.next < ahead) {
+        s.play(s.step, Math.max(s.next, ctx.currentTime), s)
+        s.step++
+        s.next += 60 / s.bpm / 4
       }
     }
-    if (s16 === 8 || s16 === 24) this.burst(t, 0.12, 0.2, 'bandpass', 1900, s.echo)
-    if (s16 % 16 === 0) this.tone({ type: 'sine', freq: 88, to: 42, t, dur: 0.2, vol: 0.4 }, s.gain)
-    if (s16 % 2 === 0) this.burst(t, 0.03, 0.05, 'highpass', 6500, s.gain)
   }
 
-  private tide(i: number, t: number, s: { gain: GainNode; echo: GainNode }) {
-    const bar = i % 64
-    const chords = [[45, 57, 60, 64, 71], [41, 53, 60, 65, 69], [48, 55, 60, 67, 74], [43, 55, 59, 62, 69]]
-    if (bar % 16 === 0) {
-      for (const n of chords[bar / 16]) this.tone({ type: 'triangle', freq: midi(n), t, dur: 3.8, vol: 0.08, attack: 1.1, cutoff: 1100 }, s.gain)
+  /** One synth voice: oscillator, optional sweeping low-pass filter, and a clean envelope. */
+  private note(out: AudioNode, o: { type: OscillatorType; freq: number; t: number; dur: number; vol: number; attack?: number; release?: number; cutoff?: number; cutoffEnd?: number; detune?: number }) {
+    const ctx = this.ctx!
+    const osc = ctx.createOscillator()
+    osc.type = o.type
+    osc.frequency.value = o.freq
+    if (o.detune) osc.detune.value = o.detune
+    const env = ctx.createGain()
+    const a = o.attack ?? 0.008
+    const r = o.release ?? 0.08
+    const hold = Math.max(a, o.dur)
+    env.gain.setValueAtTime(0, o.t)
+    env.gain.linearRampToValueAtTime(o.vol, o.t + a)
+    env.gain.setValueAtTime(o.vol, o.t + hold)
+    env.gain.exponentialRampToValueAtTime(0.0001, o.t + hold + r)
+    let head: AudioNode = osc
+    if (o.cutoff) {
+      const f = ctx.createBiquadFilter()
+      f.type = 'lowpass'
+      f.Q.value = 0.8
+      f.frequency.setValueAtTime(o.cutoff, o.t)
+      if (o.cutoffEnd) f.frequency.exponentialRampToValueAtTime(o.cutoffEnd, o.t + hold + r)
+      osc.connect(f)
+      head = f
     }
-    const arp = [76, 81, 84, 88, 84, 79]
-    if (i % 6 === 0) this.tone({ type: 'sine', freq: midi(arp[(i / 6) % arp.length]), t, dur: 0.7, vol: 0.06 }, s.echo)
+    head.connect(env).connect(out)
+    osc.start(o.t)
+    osc.stop(o.t + hold + r + 0.05)
   }
 
-  private motor(i: number, t: number, s: { gain: GainNode; echo: GainNode }) {
-    const s16 = i % 16
-    if (s16 % 4 === 0) this.tone({ type: 'sine', freq: 130, to: 44, t, dur: 0.16, vol: 0.6 }, s.gain)
-    if (s16 % 4 === 2) this.burst(t, 0.06, 0.16, 'highpass', 7200, s.gain)
-    if (s16 === 4 || s16 === 12) this.burst(t, 0.13, 0.2, 'bandpass', 2200, s.gain)
-    const root = [38, 38, 41, 36][Math.floor(i / 16) % 4]
-    this.tone({ type: 'sawtooth', freq: midi(root + (s16 % 2 ? 12 : 0)), t, dur: 0.1, vol: 0.13, cutoff: 900 }, s.gain)
-    if (s16 === 6 || s16 === 11) this.tone({ type: 'square', freq: midi(root + 31), t, dur: 0.1, vol: 0.035, cutoff: 2600 }, s.echo)
+  private chord(out: AudioNode, notes: number[], t: number, dur: number, vol: number, cutoff: number, cutoffEnd?: number, attack?: number, release?: number) {
+    for (const n of notes) {
+      for (const detune of [-7, 7]) this.note(out, { type: 'sawtooth', freq: midi(n), t, dur, vol, cutoff, cutoffEnd, detune, attack, release })
+    }
   }
 
-  private numbers(i: number, t: number, s: { gain: GainNode }) {
+  private kick(out: AudioNode, t: number, vol: number) {
+    this.tone({ type: 'sine', freq: 160, to: 52, t, dur: 0.3, vol }, out)
+    this.burst(t, 0.018, vol * 0.5, 'highpass', 2500, out)
+  }
+  private snare(out: AudioNode, t: number, vol: number) {
+    this.burst(t, 0.18, vol, 'bandpass', 1800, out)
+    this.tone({ type: 'triangle', freq: 210, to: 160, t, dur: 0.1, vol: vol * 0.5 }, out)
+  }
+  private hat(out: AudioNode, t: number, vol: number, open = false) {
+    this.burst(t, open ? 0.2 : 0.045, vol, 'highpass', 7800, out)
+  }
+  private clap(out: AudioNode, t: number, vol: number) {
+    for (let k = 0; k < 3; k++) this.burst(t + k * 0.011, 0.03, vol, 'bandpass', 1300, out)
+    this.burst(t + 0.033, 0.16, vol * 0.7, 'bandpass', 1300, out)
+  }
+
+  /** 88.3 Radio Saltline: a one-drop dub groove with a melodica tune and tape echo, in A minor. */
+  private dub(i: number, t: number, s: Station) {
+    const step = i % 16
+    const bar = Math.floor(i / 16) % 4
+    const chords = [[57, 60, 64], [57, 60, 64], [57, 62, 65], [59, 64, 67]]
+    const roots = [45, 45, 50, 52]
+    const bassline: Record<number, number> = { 0: 0, 3: 0, 6: 7, 10: 10, 12: 12, 14: 7 }
+    if (bassline[step] !== undefined) {
+      const n = roots[bar] + bassline[step]
+      this.note(s.gain, { type: 'sawtooth', freq: midi(n), t, dur: 0.24, vol: 0.2, cutoff: 900, cutoffEnd: 400 })
+      this.note(s.gain, { type: 'triangle', freq: midi(n + 12), t, dur: 0.22, vol: 0.12 })
+    }
+    if (step === 4 || step === 12) {
+      this.chord(s.gain, chords[bar], t, 0.11, 0.045, 3200, 900)
+      this.chord(s.echo, chords[bar], t, 0.11, 0.025, 3200, 900)
+    }
+    if (step === 8) {
+      this.kick(s.gain, t, 0.8)
+      this.snare(s.gain, t, 0.35)
+      this.snare(s.echo, t, 0.18)
+    }
+    if (step % 2 === 0) this.hat(s.gain, t, step % 4 === 2 ? 0.09 : 0.05)
+    const tune: [number, number, number][] = [
+      [0, 76, 3], [4, 79, 2], [6, 76, 2], [8, 74, 4], [12, 72, 4], [16, 74, 2], [18, 72, 2], [20, 69, 6], [28, 67, 4],
+      [32, 69, 3], [36, 72, 2], [38, 74, 2], [40, 77, 4], [44, 76, 4], [48, 74, 2], [50, 72, 2], [52, 71, 4], [56, 69, 8],
+    ]
+    const phrase = i % 128
+    if (phrase < 64) {
+      for (const [at, n, len] of tune) {
+        if (at !== phrase) continue
+        const dur = (len * 60) / s.bpm / 4
+        this.note(s.gain, { type: 'square', freq: midi(n), t, dur, vol: 0.075, attack: 0.02, release: 0.12, cutoff: 2400 })
+        this.note(s.echo, { type: 'square', freq: midi(n), t, dur, vol: 0.04, attack: 0.02, release: 0.12, cutoff: 2000 })
+      }
+    }
+  }
+
+  /** 94.7 Lantern FM: slow pads, a ringing bell melody and a soft shaker. */
+  private tide(i: number, t: number, s: Station) {
+    const step = i % 32
+    const section = Math.floor(i / 32) % 4
+    const chords = [[57, 60, 64, 67, 71], [53, 57, 60, 64, 69], [48, 55, 60, 64, 71], [55, 59, 62, 64, 67]]
+    const beat = 60 / s.bpm / 4
+    if (step === 0) {
+      this.chord(s.gain, chords[section], t, beat * 28, 0.026, 1700, 1100, 1.2, 1.6)
+      this.note(s.gain, { type: 'triangle', freq: midi(chords[section][0] - 12), t, dur: beat * 30, vol: 0.14, attack: 0.6, release: 1.2 })
+    }
+    if (step % 2 === 0) {
+      const pattern = [0, 2, 4, 3, 1, 4, 2, 3]
+      const n = chords[section][pattern[(step / 2) % pattern.length]] + 12
+      this.note(s.gain, { type: 'sine', freq: midi(n), t, dur: 0.18, vol: 0.13, release: 0.6 })
+      this.note(s.gain, { type: 'triangle', freq: midi(n + 12), t, dur: 0.05, vol: 0.035, release: 0.3 })
+      this.note(s.echo, { type: 'sine', freq: midi(n), t, dur: 0.18, vol: 0.07, release: 0.5 })
+    }
+    if (step % 4 === 2) this.hat(s.gain, t, 0.03)
+  }
+
+  /** 101.1 Ember AM: four-on-the-floor motor disco with an octave bass, claps, stabs and a lead riff. */
+  private motor(i: number, t: number, s: Station) {
+    const step = i % 16
+    const bar = Math.floor(i / 16) % 4
+    const roots = [45, 45, 41, 43]
+    const chords = [[57, 60, 64], [57, 60, 64], [53, 57, 60], [55, 59, 62]]
+    if (step % 4 === 0) this.kick(s.gain, t, 0.9)
+    if (step === 4 || step === 12) this.clap(s.gain, t, 0.32)
+    if (step % 4 === 2) this.hat(s.gain, t, 0.11, true)
+    else if (step % 2 === 1) this.hat(s.gain, t, 0.04)
+    const n = roots[bar] + (step % 2 ? 12 : 0)
+    this.note(s.gain, { type: 'sawtooth', freq: midi(n), t, dur: 0.09, vol: 0.15, cutoff: 1800, cutoffEnd: 500 })
+    if (step === 6 || step === 14) this.chord(s.gain, chords[bar], t, 0.1, 0.045, 3600, 1200)
+    const lead = Math.floor(i / 64) % 2 === 1
+    const riff: Record<number, number> = { 0: 0, 3: 2, 6: 1, 8: 2, 10: 0, 12: 1, 14: 2 }
+    if (lead && riff[step] !== undefined) {
+      const note = chords[bar][riff[step]] + 12
+      this.note(s.gain, { type: 'square', freq: midi(note), t, dur: 0.1, vol: 0.06, cutoff: 2800 })
+      this.note(s.echo, { type: 'square', freq: midi(note), t, dur: 0.1, vol: 0.03, cutoff: 2400 })
+    }
+  }
+
+  /** 87.9 dead air: someone reading numbers as beeps. */
+  private numbers(i: number, t: number, s: Station) {
     const code = [3, 1, 4, 1, 5, 0, 9, 2, 6, 0]
     const slot = Math.floor(i / 8) % code.length
     const n = code[slot]
     const pos = i % 8
-    if (n && pos < Math.min(n, 6)) this.tone({ type: 'sine', freq: 1046, t, dur: 0.06, vol: 0.18 }, s.gain)
+    if (n && pos < Math.min(n, 6)) this.tone({ type: 'sine', freq: 1046, t, dur: 0.06, vol: 0.22 }, s.gain)
   }
 }
 
