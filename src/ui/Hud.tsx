@@ -3,6 +3,7 @@ import { audio } from '../audio'
 import { CHAPTERS, CHEATS, LEADS } from '../content'
 import { Coin } from '../sections/Drive'
 import { SecretGroups } from './Secrets'
+import { DailyTasks } from './Daily'
 import { go } from '../hooks'
 import { TOTAL_SECRETS, useGame } from '../store'
 
@@ -176,6 +177,9 @@ export function Menu() {
               })}
             </ul>
           </section>
+          <section className="menu__daily">
+            <DailyTasks compact />
+          </section>
           <section>
             <h3>Controls</h3>
             <dl className="menu__keys">
@@ -186,6 +190,7 @@ export function Menu() {
               <div><dt>Esc</dt><dd>Pause the run</dd></div>
               <div><dt>R</dt><dd>Change radio station</dd></div>
               <div><dt>1 to 6</dt><dd>Use a special power</dd></div>
+              <div><dt>V</dt><dd>Change camera: chase, far chase, bonnet, drone</dd></div>
               <div><dt>Shift + Tab</dt><dd>Switch driver</dd></div>
             </dl>
             <button className="btn btn--quiet" onClick={() => (sure ? (reset(), setSure(false)) : setSure(true))}>{sure ? 'Tap again to erase progress' : 'Erase my progress'}</button>

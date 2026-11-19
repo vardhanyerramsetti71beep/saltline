@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { audio } from './audio'
 import { CHEATS, PAGE_SECRETS, STATIONS, type LeadId, type StripeId } from './content'
 import { LEVELS, LEVEL_SECRETS } from './levels'
-import { MAX_POWER_STOCK, powerById, type PowerId } from './powers'
+import { MAX_POWER_STOCK, POWER_IDS, powerById, type PowerId } from './powers'
+import { DAILY_BONUS, tasksFor, today, type Metric } from './daily'
 import { MAX_UPGRADE, NO_UPGRADES, VEHICLES, upgradeCost, type CarId, type UpgradeId, type Upgrades } from './vehicles'
 
 type Saved = {
@@ -22,6 +23,8 @@ type Saved = {
   levelsDone: number[]
   openRoad: boolean
   powers: Partial<Record<PowerId, number>>
+  daily: { date: string; progress: Record<string, number>; claimed: string[]; bonus: boolean }
+  camera: number
 }
 
 export type Toast = { id: number; kicker: string; title: string; body?: string }
@@ -41,6 +44,11 @@ type State = Saved & {
   chooseCar: (id: CarId) => void
   spend: (amount: number) => boolean
   buyPower: (id: PowerId) => boolean
+  track: (metric: Metric, amount: number) => void
+  claimTask: (id: string) => boolean
+  claimBonus: () => boolean
+  refreshDaily: () => void
+  setCamera: (view: number) => void
   takePower: (id: PowerId) => boolean
   buyCar: (id: CarId) => boolean
   buyUpgrade: (id: CarId, upgrade: UpgradeId) => boolean
@@ -66,6 +74,7 @@ const DEFAULTS: Saved = {
   lead: 'ines', car: 'sandpiper', paint: 'signal', stripe: 'rally', callsign: 'NIGHT DRIVER',
   secrets: [], cheats: [], bestKm: 0, bestCoins: 0, coins: 150, owned: ['sandpiper'], upgrades: {},
   level: 0, levelsDone: [], openRoad: false, powers: { shield: 1, nitro: 1 },
+  daily: { date: today(), progress: {}, claimed: [], bonus: false }, camera: 0,
 }
 
 function load(): Saved {
@@ -121,6 +130,46 @@ export const useGame = create<State>((set, get) => ({
     set({ coins: s.coins - amount })
     return true
   },
+  refreshDaily: () => {
+    const date = today()
+    if (get().daily.date !== date) set({ daily: { date, progress: {}, claimed: [], bonus: false } })
+  },
+  track: (metric, amount) => {
+    get().refreshDaily()
+    const s = get()
+    const tasks = tasksFor(s.daily.date).filter((t) => t.metric === metric)
+    if (!tasks.length) return
+    const progress = { ...s.daily.progress }
+    for (const t of tasks) {
+      const before = progress[t.id] ?? 0
+      if (before >= t.target) continue
+      progress[t.id] = Math.min(t.target, before + amount)
+      if (progress[t.id] >= t.target) s.toast({ kicker: 'Daily task done', title: t.text, body: `Claim ${t.reward} coins in Daily tasks.` })
+    }
+    set({ daily: { ...s.daily, progress } })
+  },
+  claimTask: (id) => {
+    get().refreshDaily()
+    const s = get()
+    const task = tasksFor(s.daily.date).find((t) => t.id === id)
+    if (!task || s.daily.claimed.includes(id) || (s.daily.progress[id] ?? 0) < task.target) return false
+    set({ coins: s.coins + task.reward, daily: { ...s.daily, claimed: [...s.daily.claimed, id] } })
+    audio.unlock()
+    s.toast({ kicker: 'Daily reward', title: `+${task.reward} coins`, body: task.text })
+    return true
+  },
+  claimBonus: () => {
+    const s = get()
+    const tasks = tasksFor(s.daily.date)
+    if (s.daily.bonus || !tasks.every((t) => s.daily.claimed.includes(t.id))) return false
+    const id = POWER_IDS[Math.floor(Math.random() * POWER_IDS.length)]
+    const have = s.powers[id] ?? 0
+    set({ coins: s.coins + DAILY_BONUS, daily: { ...s.daily, bonus: true }, powers: { ...s.powers, [id]: Math.min(MAX_POWER_STOCK, have + 1) } })
+    audio.win()
+    s.toast({ kicker: 'Daily bonus', title: `+${DAILY_BONUS} coins and a ${powerById(id).name.toLowerCase()}`, body: 'Come back tomorrow for three new tasks.' })
+    return true
+  },
+  setCamera: (camera) => set({ camera: ((camera % 4) + 4) % 4 }),
   buyPower: (id) => {
     const s = get()
     const p = powerById(id)
@@ -249,7 +298,7 @@ useGame.subscribe((s) => {
   const saved: Saved = {
     lead: s.lead, car: s.car, paint: s.paint, stripe: s.stripe, callsign: s.callsign, secrets: s.secrets, cheats: s.cheats,
     bestKm: s.bestKm, bestCoins: s.bestCoins, coins: s.coins, owned: s.owned, upgrades: s.upgrades, level: s.level,
-    levelsDone: s.levelsDone, openRoad: s.openRoad, powers: s.powers,
+    levelsDone: s.levelsDone, openRoad: s.openRoad, powers: s.powers, daily: s.daily, camera: s.camera,
   }
   try {
     localStorage.setItem(KEY, JSON.stringify(saved))

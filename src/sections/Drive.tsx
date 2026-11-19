@@ -7,6 +7,10 @@ import { levelOpen, upgradesOf, useGame } from '../store'
 import type { DriveGame, DriveHud } from '../three/drive'
 import { VEHICLES, statsFor } from '../vehicles'
 import { POWERS, powerById, type PowerId } from '../powers'
+import { DailyTasks } from '../ui/Daily'
+import { tasksFor } from '../daily'
+
+export const VIEWS = ['Chase', 'Far chase', 'Bonnet', 'Drone']
 
 const IDLE: DriveHud = { phase: 'attract', level: 0, kmh: 0, km: 0, length: 580, fuel: 100, lives: 3, livesMax: 3, coins: 0, region: 0, count: 3, reason: '', lostWhy: '', boost: false, park: null, respawnCost: 100, respawns: 0, powers: {} }
 
@@ -51,6 +55,8 @@ export function Drive() {
   const radioOn = useGame((s) => s.radioOn)
   const radioFreq = useGame((s) => s.radioFreq)
   const powers = useGame((s) => s.powers)
+  const camera = useGame((s) => s.camera)
+  const daily = useGame((s) => s.daily)
   const setLevel = useGame((s) => s.setLevel)
   const setDriving = useGame((s) => s.setDriving)
   const live = hud.phase !== 'attract'
@@ -72,6 +78,7 @@ export function Drive() {
           park: () => say('Pit stop ahead. Slow down and stop inside the bay.'),
           secret: (id) => useGame.getState().find(id),
           power: (power, from) => setFlash({ id: Date.now(), power, from }),
+          stat: (metric, amount) => useGame.getState().track(metric, amount),
           end: (r) => {
             const { bonus } = useGame.getState().endRun(r)
             setResult({ won: r.won, level: r.level, coins: r.coins, bonus, km: r.km })
@@ -95,6 +102,7 @@ export function Drive() {
   useEffect(() => game.current?.setLook({ car, paint: PAINTS.find((p) => p.id === paint)?.hex ?? '#d63a25', stripe }), [car, paint, stripe, ready])
   useEffect(() => game.current?.setStats(statsFor(car, upgradesOf({ upgrades }, car))), [car, upgrades, ready])
   useEffect(() => game.current?.setLead(lead), [lead, ready])
+  useEffect(() => game.current?.setView(camera), [camera, ready])
   useEffect(() => game.current?.setLevel(level), [level, ready])
   useEffect(() => game.current?.setCheats({ infinite: cheats.includes('LOWTIDE'), blueprint: cheats.includes('BLUEPRINT'), ironhide: cheats.includes('IRONHIDE') }), [cheats, ready])
 
@@ -149,6 +157,7 @@ export function Drive() {
         else g.pause()
       }
       if (e.code === 'KeyR' && !e.repeat) radio()
+      if (e.code === 'KeyV' && !e.repeat) nextView()
       const digit = /^Digit([1-6])$/.exec(e.code)
       if (digit && !e.repeat) firePower(POWERS[Number(digit[1]) - 1].id)
     }
@@ -209,6 +218,12 @@ export function Drive() {
     leave()
     setTimeout(() => go(id), 80)
   }
+  function nextView() {
+    const s = useGame.getState()
+    s.setCamera(s.camera + 1)
+    audio.tick()
+  }
+
   /** Uses one power from the saved stock. */
   function firePower(id: PowerId) {
     const g = game.current
@@ -277,7 +292,7 @@ export function Drive() {
                 )
               })}
             </div>
-            <p className="stage__keys"><kbd>← →</kbd> steer <kbd>↑</kbd> boost <kbd>↓</kbd> brake <kbd>Space</kbd> horn <kbd>R</kbd> radio <kbd>1–6</kbd> powers <kbd>Esc</kbd> pause</p>
+            <p className="stage__keys"><kbd>← →</kbd> steer <kbd>↑</kbd> boost <kbd>↓</kbd> brake <kbd>Space</kbd> horn <kbd>R</kbd> radio <kbd>1–6</kbd> powers <kbd>V</kbd> camera <kbd>Esc</kbd> pause</p>
             <p className="stage__touch">Hold the on-screen pedals to steer, brake and boost.</p>
             <button className="btn btn--solid btn--big" disabled={!ready} onClick={() => start()}>{ready ? `Start level ${L.n}` : 'Fuelling up'}</button>
             <p className="stage__best"><Coin /> {coins.toLocaleString()} coins · 3 lives · powers in stock: {POWERS.filter((p) => (powers[p.id] ?? 0) > 0).map((p) => `${powers[p.id]} ${p.name.toLowerCase()}`).join(', ') || 'none, buy some in the garage'}</p>
@@ -294,6 +309,9 @@ export function Drive() {
               </div>
               <button className={`rh__radio ${radioOn ? 'on' : ''}`} onClick={radio} aria-label={radioOn ? `Radio: ${station?.name ?? 'static'}. Change station` : 'Turn the radio on'}>
                 <span aria-hidden="true">♪</span> {radioOn ? station?.name ?? 'Static' : 'Radio off'}
+              </button>
+              <button className="rh__cam" onClick={nextView} aria-label={`Camera: ${VIEWS[camera]}. Change view`} title="V: change camera">
+                <span aria-hidden="true">◎</span> {VIEWS[camera]}
               </button>
               <button className="rh__pause" onClick={() => (hud.phase === 'paused' ? game.current?.resume() : game.current?.pause())} aria-label="Pause">II</button>
             </div>
@@ -416,6 +434,7 @@ export function Drive() {
                   <div><dt>Coins</dt><dd>+{(result?.coins ?? hud.coins) + (result?.bonus ?? 0)}</dd></div>
                   <div><dt>Secrets</dt><dd>{levelSecrets(hud.level)}/6</dd></div>
                 </dl>
+                {tasksFor(daily.date).some((t) => (daily.progress[t.id] ?? 0) >= t.target && !daily.claimed.includes(t.id)) && <p className="stage__note stage__note--daily">A daily task is ready. Claim its coins under the game.</p>}
                 {!!result?.bonus && <p className="stage__note">Includes a {result.bonus}-coin bonus for finishing the level.</p>}
                 {nextLevel ? (
                   <button className="btn btn--solid btn--big" onClick={() => start(nextLevel.n - 1)}>Next level: {nextLevel.name}</button>
@@ -432,6 +451,7 @@ export function Drive() {
           </>
         )}
       </div>
+      <DailyTasks />
     </section>
   )
 }

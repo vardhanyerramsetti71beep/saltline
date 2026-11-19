@@ -4,6 +4,7 @@ import type { LeadId } from '../content'
 import { LEVELS, type Level, type LevelSecret } from '../levels'
 import { VEHICLE_ORDER, VEHICLES, type Stats } from '../vehicles'
 import { POWER_IDS, powerById, type PowerId } from '../powers'
+import type { Metric } from '../daily'
 import { buildCar, type CarLook } from './car'
 import { bendUniform, bendable, box, cone, cyl, flatVertex, merged } from './kit'
 import { BAY_X, WALL_Z, landmarkGroup, pitGroup, propGeometry, relicGeometry, trafficModels } from './props'
@@ -20,6 +21,7 @@ export type DriveEvents = {
   hud: (h: DriveHud) => void
   region: (index: number) => void
   park: () => void
+  stat: (metric: Metric, amount: number) => void
   secret: (id: string) => void
   power: (id: PowerId, from: 'road' | 'stock') => void
   end: (result: { won: boolean; level: number; km: number; coins: number; livesLost: number }) => void
@@ -113,6 +115,9 @@ export class DriveGame {
   private active: Partial<Record<PowerId, number>> = {}
   private nextPower = 700
   private ghostShown = false
+  private boostAcc = 0
+  private kmAcc = 0
+  private view = 0
   private shieldMesh?: THREE.Mesh
 
   constructor(private canvas: HTMLCanvasElement, look: CarLook, stats: Stats, lead: LeadId, level: number, private events: DriveEvents) {
@@ -490,6 +495,8 @@ export class DriveGame {
     this.parkTimer = 0
     this.park = null
     this.respawns = 0
+    this.boostAcc = 0
+    this.kmAcc = 0
     this.active = {}
     this.nextPower = 700
     this.showGhost(false)
@@ -601,6 +608,8 @@ export class DriveGame {
     }
     audio.power()
     this.events.power(id, from)
+    this.events.stat('power', 1)
+    if (from === 'road') this.events.stat('pickup', 1)
     this.pushHud(true)
   }
 
@@ -629,9 +638,15 @@ export class DriveGame {
     })
   }
 
+  /** Chase, far chase, bonnet or drone. */
+  setView(view: number) {
+    this.view = ((view % 4) + 4) % 4
+  }
+
   /** Called when the player sounds the horn. Honking at the level's landmark is one of its secrets. */
   honk() {
     if (this.phase !== 'run' && this.phase !== 'park') return
+    this.events.stat('honk', 1)
     const mark = this.entities.find((e) => e.kind === 'landmark' && e.on)
     if (mark && mark.z > -320 && mark.z < 30) {
       const secret = this.level.secrets.find((s) => s.type === 'honk')
@@ -730,12 +745,28 @@ export class DriveGame {
     this.tickPowers(dt)
 
     const axis = this.input.axis || Number(this.input.right) - Number(this.input.left)
-    const reach = 25 * s.grip * THREE.MathUtils.clamp(0.3 + Math.abs(this.kmh) / 150, 0.3, 1)
+    // A car only moves sideways while it is rolling: no steering at rest, gentle steering when slow.
+    const rolling = THREE.MathUtils.clamp((Math.abs(this.kmh) - 1) / 60, 0, 1)
+    const reach = 25 * s.grip * rolling
     this.vx += (axis * reach - this.vx) * Math.min(1, dt * 7.5 * s.grip)
     const push = parking ? 0 : -bendUniform.value.x * this.kmh * 2.11
     this.x = THREE.MathUtils.clamp(this.x + (this.vx + push) * dt, -SHOULDER + 1.1, SHOULDER - 1.1)
 
     this.km = Math.max(0, this.km + this.kmh * 0.02 * dt)
+    // Daily tasks count whole kilometres and whole seconds of boost.
+    this.kmAcc += Math.max(0, this.kmh * 0.02 * dt)
+    if (this.kmAcc >= 1) {
+      const whole = Math.floor(this.kmAcc)
+      this.kmAcc -= whole
+      this.events.stat('km', whole)
+    }
+    if (this.boosting) {
+      this.boostAcc += dt
+      if (this.boostAcc >= 1) {
+        this.boostAcc -= 1
+        this.events.stat('boost', 1)
+      }
+    }
     if (!this.cheats.infinite && !parking && !this.active.nitro) {
       // Boost burns fuel three times faster; Ines's pace notes save a quarter of that.
       const burn = this.boosting ? (this.lead === 'ines' ? 2.4 : 3.2) : 1
@@ -946,7 +977,9 @@ export class DriveGame {
     this.car.position.y = Math.sin(this.time * 19) * 0.012 * Math.min(1, Math.abs(this.kmh) / 129)
     this.car.rotation.y = THREE.MathUtils.lerp(this.car.rotation.y, -this.vx * 0.016, Math.min(1, dt * 9))
     this.car.rotation.z = THREE.MathUtils.lerp(this.car.rotation.z, -this.vx * 0.006, Math.min(1, dt * 8))
-    this.car.visible = this.invuln <= 0 || Math.floor(this.time * 18) % 2 === 0
+    // The bonnet view is from the driver's seat, so the car itself is hidden.
+    const driverSeat = this.view === 2 && this.phase !== 'attract' && this.phase !== 'win' && this.phase !== 'over'
+    this.car.visible = !driverSeat && (this.invuln <= 0 || Math.floor(this.time * 18) % 2 === 0)
     if (this.shieldMesh) {
       this.shieldMesh.visible = !!this.active.shield
       ;(this.shieldMesh.material as THREE.MeshBasicMaterial).opacity = 0.22 + Math.sin(this.time * 6) * 0.08
@@ -971,7 +1004,9 @@ export class DriveGame {
     if (e.kind === 'coin') {
       e.on = false
       e.obj.visible = false
-      this.coins += this.active.double ? 2 : 1
+      const value = this.active.double ? 2 : 1
+      this.coins += value
+      this.events.stat('coins', value)
       this.chain++
       audio.pickup(this.chain)
       return
@@ -980,6 +1015,7 @@ export class DriveGame {
       e.on = false
       e.obj.visible = false
       this.fuel = Math.min(100, this.fuel + 38)
+      this.events.stat('fuel', 1)
       audio.fuel()
       return
     }
@@ -995,6 +1031,7 @@ export class DriveGame {
       if (!this.active.nitro) delete this.active.shield
       this.shake = 0.35
       audio.smash()
+      this.events.stat('smash', 1)
       if (e.kind !== 'traffic') {
         e.on = false
         e.obj.visible = false
@@ -1039,7 +1076,11 @@ export class DriveGame {
     if (won) {
       this.km = this.level.length
       if (this.lives === this.livesMax) this.secretOf('clean')
-      if (Math.abs(this.parkOffset.dx) < 0.4 && Math.abs(this.parkOffset.dz) < 0.6) this.secretOf('park')
+      this.events.stat('finish', 1)
+      if (Math.abs(this.parkOffset.dx) < 0.4 && Math.abs(this.parkOffset.dz) < 0.6) {
+        this.secretOf('park')
+        this.events.stat('perfect', 1)
+      }
     }
     this.events.end({ won, level: this.level.n - 1, km: Math.min(this.km, this.level.length), coins: this.coins, livesLost: this.livesMax - this.lives })
     this.pushHud(true)
@@ -1090,13 +1131,64 @@ export class DriveGame {
 
   private camStep(dt: number) {
     const wide = this.camera.aspect < 0.9
-    const k = Math.min(1, dt * 5)
     const finale = this.phase === 'win' || this.phase === 'over'
     const parking = this.phase === 'park'
-    const orbit = finale ? this.time * 0.35 : 0
-    const tx = finale ? this.x + Math.sin(orbit) * 9 : this.x * (parking ? 0.85 : 0.62)
-    const tz = finale ? Math.cos(orbit) * 9 : (wide ? 10 : 8.8) + (parking ? 2.5 : 0)
-    const ty = finale ? 3.4 : (wide ? 4.1 : 3.5) + (parking ? 2.2 : 0)
+    const p = VEHICLES[this.look.car].profile
+    const tall = Math.max(...p.roof.map(([, v]) => v), ...p.body.map(([, v]) => v))
+    const size = Math.max(1, tall / 1.6)
+    // The menu backdrop always uses the chase camera; the chosen view applies once a run starts.
+    const view = this.phase === 'attract' ? 0 : this.view
+    let k = Math.min(1, dt * 5)
+    let tx: number, ty: number, tz: number, lx: number, ly: number, lz: number, fov: number
+    if (finale) {
+      const orbit = this.time * 0.35
+      tx = this.x + Math.sin(orbit) * 9 * size
+      tz = Math.cos(orbit) * 9 * size
+      ty = 3.4 * size
+      lx = this.x
+      ly = 1
+      lz = 0
+      fov = wide ? 82 : 64
+    } else if (view === 1) {
+      // Far chase: higher and further back, to see more of the road ahead.
+      tx = this.x * 0.5
+      ty = (wide ? 8 : 6.6) * size + (parking ? 3 : 0)
+      tz = (wide ? 17 : 15) * size
+      lx = this.x * 0.7
+      ly = 1
+      lz = -20
+      fov = wide ? 76 : 58
+    } else if (view === 2) {
+      // Bonnet: just ahead of the windscreen, at the driver's eye line for this vehicle.
+      const cabinFront = p.cabin[p.cabin.length - 1][0]
+      const u = Math.min(cabinFront + 0.3, p.front + p.arch)
+      const hood = Math.max(...p.body.filter(([bu]) => bu > cabinFront - 0.2).map(([, v]) => v))
+      tx = this.x
+      ty = hood + 0.62
+      tz = -u
+      lx = this.x
+      ly = hood + 0.3
+      lz = tz - 30
+      fov = wide ? 86 : 72
+      k = Math.min(1, dt * 14)
+    } else if (view === 3) {
+      // Drone: high overhead, looking down the road.
+      tx = this.x * 0.8
+      ty = 24
+      tz = 11
+      lx = this.x * 0.8
+      ly = 0
+      lz = -18
+      fov = wide ? 70 : 55
+    } else {
+      tx = this.x * (parking ? 0.85 : 0.62)
+      tz = ((wide ? 10 : 8.8) + (parking ? 2.5 : 0)) * size
+      ty = ((wide ? 4.1 : 3.5) + (parking ? 2.2 : 0)) * size
+      lx = this.x * 0.78
+      ly = parking ? 0.4 : 1.25
+      lz = -13
+      fov = wide ? 82 : 64
+    }
     this.camera.position.x += (tx - this.camera.position.x) * k
     this.camera.position.y += (ty - this.camera.position.y) * k
     this.camera.position.z += (tz - this.camera.position.z) * k
@@ -1105,9 +1197,8 @@ export class DriveGame {
       this.camera.position.x += (Math.random() - 0.5) * this.shake
       this.camera.position.y += (Math.random() - 0.5) * this.shake * 0.6
     }
-    if (finale) this.camera.lookAt(this.x, 1, 0)
-    else this.camera.lookAt(this.x * 0.78, parking ? 0.4 : 1.25, -13)
-    const speedFov = (wide ? 82 : 64) + Math.min(10, Math.abs(this.kmh) / 26) + (this.boosting ? 6 : 0) + (this.active.nitro ? 12 : 0)
+    this.camera.lookAt(lx, ly, lz)
+    const speedFov = fov + Math.min(10, Math.abs(this.kmh) / 26) + (this.boosting ? 6 : 0) + (this.active.nitro ? 12 : 0)
     this.camera.fov += (speedFov - this.camera.fov) * Math.min(1, dt * 2)
     this.camera.updateProjectionMatrix()
   }
